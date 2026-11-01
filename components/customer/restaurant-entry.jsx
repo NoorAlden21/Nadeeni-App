@@ -1,0 +1,268 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { PoweredBy } from "@/components/brand/powered-by";
+import { ActionButton } from "@/components/cashier/action-button";
+import { apiFetch } from "@/lib/api/client";
+import {
+  customerCopy,
+  orderNumberProblem,
+  publicErrorText,
+  readVisitorId,
+  rememberOrderIcon,
+  rememberRestaurantIcon,
+} from "@/lib/customer/public";
+
+export function RestaurantEntry({ slug }) {
+  const router = useRouter();
+  const [name, setName] = useState("");
+  const [iconUrl, setIconUrl] = useState("");
+  const [missing, setMissing] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+  const [number, setNumber] = useState("");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  
+  const [savedOrder, setSavedOrder] = useState("");
+
+  useEffect(() => {
+    let stopped = false;
+
+    if (typeof window !== "undefined") {
+      const last = localStorage.getItem(`nadeeni_last_order_${slug}`);
+      if (last) setSavedOrder(last);
+    }
+
+    apiFetch(`/public/restaurants/${encodeURIComponent(slug)}`)
+      .then((restaurant) => {
+        if (stopped) return;
+        setName(restaurant?.name || "");
+        setIconUrl(restaurant?.icon_url || "");
+        rememberRestaurantIcon(restaurant?.name, restaurant?.icon_url);
+      })
+      .catch((requestError) => {
+        if (stopped) return;
+        if (requestError.status === 404) {
+          setMissing(true);
+          return;
+        }
+        setError(publicErrorText(requestError, customerCopy.restaurantMissing));
+      })
+      .finally(() => {
+        if (!stopped) setLoaded(true);
+      });
+
+    return () => {
+      stopped = true;
+    };
+  }, [slug]);
+
+  function statusPath(result) {
+    if (result?.url) {
+      try {
+        const parsed = new URL(result.url, window.location.origin);
+        if (parsed.pathname.startsWith("/o/")) {
+          return `${parsed.pathname}${parsed.search}`;
+        }
+      } catch {
+        // The token below still opens this site's status page.
+      }
+    }
+    if (result?.token) return `/o/${encodeURIComponent(result.token)}`;
+    return "";
+  }
+
+  async function handleSubmit(event, overrideNumber = null) {
+    if (event) event.preventDefault();
+    if (busy) return;
+
+    const targetNumber = overrideNumber || number;
+    const problem = orderNumberProblem(targetNumber);
+    if (problem) {
+      setError(problem);
+      return;
+    }
+
+    setBusy(true);
+    setError("");
+    try {
+      const visitorId = readVisitorId();
+      const result = await apiFetch(`/public/restaurants/${encodeURIComponent(slug)}/register`, {
+        method: "POST",
+        body: {
+          order_number: targetNumber.trim(),
+          ...(visitorId ? { visitor_id: visitorId } : {}),
+        },
+      });
+
+      if (typeof window !== "undefined") {
+        localStorage.setItem(`nadeeni_last_order_${slug}`, targetNumber.trim());
+        rememberOrderIcon(result?.token, iconUrl);
+      }
+
+      const nextPath = statusPath(result);
+      if (nextPath) {
+        router.push(nextPath);
+      }
+    } catch (requestError) {
+      setError(publicErrorText(requestError, customerCopy.orderUnavailable));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!loaded) {
+    return (
+      <Screen>
+        <p className="text-base font-medium text-burgundy-deep">{customerCopy.opening}</p>
+      </Screen>
+    );
+  }
+
+  if (missing) {
+    return (
+      <Screen>
+        <p className="max-w-md text-center text-lg font-semibold leading-8 text-burgundy-deep">
+          {customerCopy.restaurantMissing}
+        </p>
+      </Screen>
+    );
+  }
+
+  return (
+    <Screen>
+      <div className="grid w-full items-center gap-8 lg:grid-cols-2 lg:gap-16">
+        
+        {/* القسم الأيمن / العلوي */}
+        <div className="flex flex-col items-center text-center lg:items-start lg:text-start">
+          
+          {/* تسلسل النظام (Progress Stepper) بدلاً من الفاتورة */}
+          <div className="w-full max-w-[18rem] sm:max-w-xs mb-8 lg:mb-12">
+            <div className="relative flex justify-between">
+              {/* خط الخلفية */}
+              <div className="absolute top-5 right-6 left-6 h-[2px] bg-burgundy/10 z-0" />
+              {/* خط التقدم (الذهبي) */}
+              <div className="absolute top-5 right-6 w-1/2 h-[2px] bg-gold z-0" />
+
+              {/* الخطوة الأولى: مسح الرمز (تمت) */}
+              <div className="relative z-10 flex flex-col items-center gap-2 opacity-60">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gold text-white shadow-sm transition-transform hover:scale-105">
+                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                  </svg>
+                </div>
+                <span className="text-xs font-bold text-ink/70">مسح الرمز</span>
+              </div>
+
+              {/* الخطوة الثانية: إدخال الرقم (الحالية - مع أنيميشن) */}
+              <div className="relative z-10 flex flex-col items-center gap-2">
+                <div className="relative flex h-10 w-10 items-center justify-center rounded-full bg-burgundy text-white">
+                  {/* تأثير النبض (Ping) */}
+                  <div className="absolute inset-0 rounded-full border-2 border-burgundy opacity-75 animate-[ping_2s_cubic-bezier(0,0,0.2,1)_infinite]" />
+                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 6v.75m0 3v.75m0 3v.75m0 3V18m-9-5.25h5.25M7.5 15h3M3.375 5.25c-.621 0-1.125.504-1.125 1.125v3.026a2.999 2.999 0 010 5.198v3.026c0 .621.504 1.125 1.125 1.125h17.25c.621 0 1.125-.504 1.125-1.125v-3.026a2.999 2.999 0 010-5.198V6.375c0-.621-.504-1.125-1.125-1.125H3.375z" />
+                  </svg>
+                </div>
+                <span className="text-xs font-extrabold text-burgundy-deep">إدخال الرقم</span>
+              </div>
+
+              {/* الخطوة الثالثة: الاستلام (قيد الانتظار) */}
+              <div className="relative z-10 flex flex-col items-center gap-2 opacity-40">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-burgundy/20 bg-white text-burgundy/40">
+                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
+                  </svg>
+                </div>
+                <span className="text-xs font-semibold text-ink/60">تتبع الطلب</span>
+              </div>
+            </div>
+          </div>
+          
+          {iconUrl ? (
+            <img src={iconUrl} alt="" className="mb-4 h-20 w-20 rounded-[1.5rem] object-cover ring-1 ring-burgundy/10 sm:h-24 sm:w-24" />
+          ) : null}
+          <div className="flex items-center gap-2">
+            <span className="text-xl opacity-80">👋</span>
+            <p className="text-sm font-semibold text-gold-deep sm:text-base">أهلاً بك في مطعم</p>
+          </div>
+          
+          {name ? (
+            <h1 className="mt-2 max-w-full font-display text-4xl font-semibold wrap-break-word text-burgundy-deep sm:text-5xl lg:text-6xl">
+              {name}
+            </h1>
+          ) : null}
+          <p className="mt-3 max-w-md text-base leading-7 text-ink/70 sm:text-lg">
+            اكتبوا رقم الطلب كما سجّله الكاشير.
+          </p>
+        </div>
+
+        {/* القسم الأيسر / السفلي (الفورم) */}
+        <div className="flex w-full flex-col gap-5 rounded-[1.75rem] bg-paper p-5 ring-1 ring-burgundy/10 sm:p-8 lg:p-10 shadow-sm relative overflow-hidden">
+          <form onSubmit={(e) => handleSubmit(e)} className="flex flex-col gap-5 relative z-10">
+            <div>
+              <label htmlFor="order-number" className="mb-3 block text-center text-sm font-semibold text-burgundy-deep lg:text-start">
+                رقم الطلب
+              </label>
+              <div className="rounded-2xl bg-ivory px-3 ring-1 ring-burgundy/15 transition focus-within:bg-white focus-within:ring-2 focus-within:ring-gold sm:px-5">
+                <input
+                  id="order-number"
+                  name="order_number"
+                  dir="ltr"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  autoFocus
+                  autoComplete="off"
+                  enterKeyHint="go"
+                  placeholder="0047"
+                  value={number}
+                  onChange={(event) => {
+                    setNumber(event.target.value);
+                    setError("");
+                  }}
+                  className="h-16 w-full min-w-0 overflow-x-auto bg-transparent text-center font-sans text-3xl font-semibold tracking-[0.12em] text-burgundy-deep outline-none placeholder:text-xl placeholder:font-medium placeholder:tracking-normal placeholder:text-ink/25 sm:h-20 sm:text-4xl lg:h-24 lg:text-5xl"
+                />
+              </div>
+             
+            </div>
+
+            {error ? (
+              <p role="alert" className="rounded-2xl bg-foam px-4 py-3 text-center text-sm font-medium leading-6 text-burgundy">
+                {error}
+              </p>
+            ) : null}
+
+            <ActionButton type="submit" size="lg" disabled={busy} className="w-full shadow-sm hover:shadow-md transition-shadow">
+              {busy ? "جاري التحقق..." : "تابع طلبي"}
+            </ActionButton>
+          </form>
+
+          {savedOrder && !number && !busy && (
+            <div className="mt-1 flex flex-col items-center border-t border-burgundy/5 pt-4 relative z-10">
+              <p className="mb-2 text-xs font-medium text-ink/50">هل تبحث عن طلبك السابق؟</p>
+              <button 
+                onClick={() => handleSubmit(null, savedOrder)}
+                className="flex items-center gap-2 rounded-xl bg-gold/10 px-4 py-2 text-sm font-bold text-gold-deep transition hover:bg-gold/20"
+              >
+                <span>متابعة الطلب رقم {savedOrder}</span>
+                <svg className="h-4 w-4 rtl:rotate-180" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+                </svg>
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </Screen>
+  );
+}
+
+function Screen({ children }) {
+  return (
+    <main className="flex min-h-dvh flex-col overflow-x-clip bg-ivory px-4 pt-[max(2rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-8 lg:px-12">
+      <div className="my-auto w-full max-w-5xl self-center">{children}</div>
+      
+      <PoweredBy className="text-ink/70" />
+    </main>
+  );
+}

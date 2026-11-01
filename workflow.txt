@@ -1,0 +1,28 @@
+The platform admin is created on the server, not in the app. Everyone else is created by that admin. A customer never has an account.
+1. Platform admin
+The admin logs in with the seeded email and password. The app opens the admin screen because is_platform_admin is true.
+The admin creates the plans first: a monthly plan, a yearly plan, and trials of 7 and 14 days with price 0. The API does not take payment. The price is only a label.
+Then the admin creates a restaurant and must pick one of those plans. The subscription starts immediately. Timezone and order lifetime can be left out. They become Asia/Damascus and 240 minutes.
+Then the admin creates a cashier and an owner for that restaurant, each with a name, email, and password. Those responses have no login token. Each person logs in themselves.
+Later the admin can list those accounts, change the name, email, password, or role, turn an account off, or delete it. To keep a restaurant going, the admin assigns the plan again before ends_at. Time still left is kept, and the new period starts when the current one ends.
+2. Cashier
+The cashier logs in and lands on the order screen. They type the order number the restaurant already uses, such as 0047, and create the order. The status is waiting. The API returns one QR link for that order. Creating the order does not notify the customer.
+The cashier screen also has the restaurant’s permanent QR. Both work for every restaurant. preferred_qr_mode only decides which one the screen emphasizes.
+The cashier leaves the order on waiting while the food is being made. The order list polls every 4 seconds.
+3. Customer
+The customer has two ways in.
+They scan the permanent restaurant QR, open /r/{slug}, type the order number, and the API attaches them to the order the cashier already created. If the number is wrong, not entered yet, already finished, or from another restaurant, the page shows one “unavailable” message.
+Or they scan the QR on the cashier’s screen and land directly on /o/{token} for that order.
+The status page polls every 4 seconds. The phone can also allow notifications. That subscribes this order to Web Push. No account is created.
+4. Food is ready
+The cashier presses Notify. The order becomes ready. The open status page changes on the next poll, and the API asks the push service to deliver “طلب {number} جاهز”. A second Notify does not send again. Resend is the separate button when the customer missed it. The cashier screen says the request was sent, not that the phone received it.
+If the number was typed wrong, the cashier corrects it on that same order. The QR stays the same. Cancel is only for a customer who is not taking the order. The cashier records it. There is no cancel button for the customer.
+When the customer picks the food up, the cashier presses Collect. That does not send a push. The status page then shows collected. 
+//////////////////
+6. Owner
+
+The owner logs in and sees the stats screen only. They pick a date range, up to 90 days, and see orders, how many became ready, how many were cancelled, the average time to ready, and new versus returning browsers. They cannot create orders or manage staff.
+
+7. When the restaurant is cut off
+
+If the subscription end has passed and the admin has not assigned a plan again, the cashier and owner cannot log in or use their screens. The customer page for that restaurant is not found. The admin can still log in and assign a plan.

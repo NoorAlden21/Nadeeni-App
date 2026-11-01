@@ -1,0 +1,22 @@
+---
+description: Nadeeni UI source of truth — product, visual system, API client rules
+alwaysApply: true
+---
+
+# Frontend reference
+
+`FRONTEND_REFERENCE.md` is the source of truth for this repo. Read it before adding screens, API calls, copy, or design tokens. Do not invent a parallel order model.
+
+This app is the cashier dashboard, `/r/{slug}`, `/o/{token}`, the service worker, and later platform admin. It renders UI and calls the Laravel API. It does not decide whether an order number matches, whether a status change is legal, or whether a push was sent.
+
+## Non-negotiables
+
+- JavaScript (`.js` / `.jsx`), Next.js App Router, Tailwind 4 with tokens in `@theme inline`. Arabic, `lang="ar"` `dir="rtl"`. Fonts: El Messiri (display) and IBM Plex Sans Arabic (body and order numbers).
+- Order numbers are strings. Show the API string. Do not parse them, strip leading zeros, or convert to Eastern digits.
+- Statuses: `waiting` → `ready` → `collected`, plus `cancelled` and `expired`. Notify is the only path from `waiting` to `ready`. Final statuses stop polling and celebration motion.
+- Poll every 4 seconds with a rescheduling loop, not a one-shot timer. The tablet that just notified, resent, collected, or cancelled updates from that response immediately.
+- Public routes send no bearer token. They authorize with the URL token. Never send a client `restaurant_id` the server is expected to trust. Never log endpoints, push keys, bearer tokens, or QR tokens.
+- Branch UI copy on the locked Arabic sentences in section 6. One `order_unavailable` sentence covers every public failure. Never claim the customer received the notification.
+- Customer pages are the phone. No marketing header, WhatsApp, trial form, ratings, or fake device chrome on `/o/{token}`.
+- Build order: cashier login and dashboard first, then customer routes and the 4-second poll, then the service worker, then platform admin.
+- Copy the design system from section 4 (`ivory`, `burgundy`, `gold`, logo crops). First paint on cashier and customer screens must be visible without scroll reveal.

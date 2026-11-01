@@ -1,0 +1,15 @@
+---
+description: Product flow for Nadeeni — who logs in and what each role does
+alwaysApply: true
+---
+
+# Product workflow
+
+`workflow.txt` is the product-flow reference. Read it before adding a screen or changing who can do what. `api (3).md` stays the API contract. Do not invent a step the workflow does not describe.
+
+- The platform admin is seeded on the server. The app does not create that account. Customers never have an account.
+- Admin, in this order: subscription plans (month, year, 7-day and 14-day trials, price `0` as a label), then a restaurant with one plan, then a cashier and an owner. Those two log in themselves. Assigning a plan again before `ends_at` keeps the remaining time and starts the new period after it.
+- Cashier: order screen only. Create keeps the typed order number and starts at `waiting`. Notify is the only path to `ready`. Resend is separate. Collect does not push. Cancel is the cashier recording that the customer is not taking the order.
+- Customer: `/r/{slug}` or `/o/{token}`. One unavailable sentence for every failed number. The status page polls every 4 seconds. Push does not create an account.
+- Owner: stats only, for a range of at most 90 days. No orders and no staff management.
+- After the subscription ends, the cashier and owner cannot use their screens and the customer page is not found. The admin can still log in and assign a plan.
