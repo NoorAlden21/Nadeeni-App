@@ -7,6 +7,7 @@ import { apiFetch } from "@/lib/api/client";
 import { QrDialog } from "@/components/cashier/qr-dialog";
 import { OwnerCharts } from "@/components/owner/owner-charts";
 import { OwnerReviews } from "@/components/owner/owner-reviews";
+import { qrTargetUrl } from "@/lib/qr/download";
 import { defaultRange, rangeError, statsErrorText } from "@/lib/owner/stats";
 
 const fieldClass =
@@ -156,7 +157,7 @@ export function OwnerDashboard({ token, user, onUnauthenticated, onInactive }) {
 
     setQr({
       title: "رمز المطعم",
-      url: `${window.location.origin}/r/${encodeURIComponent(slug)}`,
+      url: qrTargetUrl(`${window.location.origin}/r/${encodeURIComponent(slug)}`),
     });
   }
 

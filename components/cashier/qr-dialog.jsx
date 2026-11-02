@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import QRCode from "qrcode";
 import { ActionButton } from "@/components/cashier/action-button";
 import { cashierCopy } from "@/lib/cashier/orders";
-import { downloadQrImage, qrCanvasOptions, qrFileName } from "@/lib/qr/download";
+import { downloadQrImage, qrCanvasOptions, qrFileName, qrTargetUrl } from "@/lib/qr/download";
 
 export function QrDialog({ qr, onDismiss }) {
   const dialogRef = useRef(null);
@@ -31,7 +31,7 @@ export function QrDialog({ qr, onDismiss }) {
 
     let cancelled = false;
     const frame = window.requestAnimationFrame(() => {
-      QRCode.toCanvas(canvas, qr.url, qrCanvasOptions(220)).catch(() => {
+      QRCode.toCanvas(canvas, qrTargetUrl(qr.url), qrCanvasOptions(220)).catch(() => {
         if (!cancelled) {
           canvas.replaceChildren();
         }
@@ -57,7 +57,7 @@ export function QrDialog({ qr, onDismiss }) {
     setDownloading(true);
     setDownloadError("");
     try {
-      await downloadQrImage(qr.url, qrFileName(qr.orderNumber));
+      await downloadQrImage(qrTargetUrl(qr.url), qrFileName(qr.orderNumber));
     } catch {
       setDownloadError(cashierCopy.generic);
     } finally {
