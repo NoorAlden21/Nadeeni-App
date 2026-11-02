@@ -265,11 +265,11 @@ These routes require a bearer token for a user with `is_platform_admin: true`. A
 | `order_ttl_minutes` | Optional. Integer from 1 to 65535. Default `240`. |
 | `is_active` | Optional. Boolean. Default `true`. |
 | `plan_id` | Required. Id of an active subscription plan. |
-| `icon` | Optional. A JPEG, PNG, or WebP file, at most 1 MB. |
+| `icon` | Optional. A JPEG, PNG, WebP, or SVG file, at most 1 MB. |
 
 `201` is the created [Restaurant](#restaurant). `icon_url` is `null` when no icon was sent.
 
-To upload an icon, send `multipart/form-data` instead of JSON. The other fields stay form fields. A missing `plan_id`, an inactive plan, or a file that is not a JPEG, PNG, or WebP is `422`.
+To upload an icon, send `multipart/form-data` instead of JSON. The other fields stay form fields. A missing `plan_id`, an inactive plan, or a file that is not a JPEG, PNG, WebP, or SVG is `422`.
 
 ### `PATCH /admin/restaurants/{id}`
 

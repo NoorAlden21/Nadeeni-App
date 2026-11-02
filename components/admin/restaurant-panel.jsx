@@ -24,7 +24,17 @@ function subscriptionLine(restaurant) {
   return `${subscription.plan_name} · منتهٍ ${end}`;
 }
 
-const iconTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
+const iconTypes = new Set(["image/jpeg", "image/png", "image/webp", "image/svg+xml"]);
+
+function isRestaurantIcon(file) {
+  if (file.size > 1024 * 1024) {
+    return false;
+  }
+  if (iconTypes.has(file.type)) {
+    return true;
+  }
+  return file.type === "" && file.name.toLowerCase().endsWith(".svg");
+}
 
 function toPayload(body, icon) {
   if (!icon) {
@@ -338,17 +348,17 @@ export function RestaurantPanel({
               key={fileKey}
               id="restaurant-icon"
               type="file"
-              accept="image/jpeg,image/png,image/webp"
+              accept="image/jpeg,image/png,image/webp,image/svg+xml,.svg"
               onChange={(event) => {
                 const file = event.target.files?.[0] || null;
                 if (!file) {
                   setIcon(null);
                   return;
                 }
-                if (!iconTypes.has(file.type) || file.size > 1024 * 1024) {
+                if (!isRestaurantIcon(file)) {
                   setIcon(null);
                   event.target.value = "";
-                  setError("الشعار ملف JPEG أو PNG أو WebP ولا يتجاوز 1 ميغابايت.");
+                  setError("الشعار ملف JPEG أو PNG أو WebP أو SVG ولا يتجاوز 1 ميغابايت.");
                   return;
                 }
                 setIcon(file);
