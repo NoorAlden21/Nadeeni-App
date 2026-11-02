@@ -1,11 +1,16 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import QRCode from "qrcode";
+import { ActionButton } from "@/components/cashier/action-button";
+import { cashierCopy } from "@/lib/cashier/orders";
+import { downloadQrImage, qrCanvasOptions, qrFileName } from "@/lib/qr/download";
 
 export function QrDialog({ qr, onDismiss }) {
   const dialogRef = useRef(null);
   const canvasRef = useRef(null);
+  const [downloading, setDownloading] = useState(false);
+  const [downloadError, setDownloadError] = useState("");
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -26,11 +31,7 @@ export function QrDialog({ qr, onDismiss }) {
 
     let cancelled = false;
     const frame = window.requestAnimationFrame(() => {
-      QRCode.toCanvas(canvas, qr.url, {
-        margin: 1,
-        width: 220,
-        color: { dark: "#4a0418", light: "#fffdf8" },
-      }).catch(() => {
+      QRCode.toCanvas(canvas, qr.url, qrCanvasOptions(220)).catch(() => {
         if (!cancelled) {
           canvas.replaceChildren();
         }
@@ -42,6 +43,27 @@ export function QrDialog({ qr, onDismiss }) {
       window.cancelAnimationFrame(frame);
     };
   }, [qr]);
+
+  useEffect(() => {
+    setDownloading(false);
+    setDownloadError("");
+  }, [qr]);
+
+  async function handleDownload() {
+    if (!qr?.url || downloading) {
+      return;
+    }
+
+    setDownloading(true);
+    setDownloadError("");
+    try {
+      await downloadQrImage(qr.url, qrFileName(qr.orderNumber));
+    } catch {
+      setDownloadError(cashierCopy.generic);
+    } finally {
+      setDownloading(false);
+    }
+  }
 
   function handleBackdrop(event) {
     if (event.target === dialogRef.current) {
@@ -75,6 +97,19 @@ export function QrDialog({ qr, onDismiss }) {
             </p>
           ) : null}
           <canvas ref={canvasRef} className="mt-4 rounded-2xl" />
+          <ActionButton
+            variant="quiet"
+            onClick={handleDownload}
+            disabled={!qr.url || downloading}
+            className="mt-4"
+          >
+            تنزيل الرمز
+          </ActionButton>
+          {downloadError ? (
+            <p role="alert" className="mt-2 text-sm font-medium text-burgundy">
+              {downloadError}
+            </p>
+          ) : null}
           <button
             type="button"
             autoFocus

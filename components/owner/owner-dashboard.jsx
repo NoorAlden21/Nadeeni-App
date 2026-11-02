@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { BrandMark } from "@/components/brand/brand-mark";
 import { ActionButton } from "@/components/cashier/action-button";
 import { apiFetch } from "@/lib/api/client";
+import { QrDialog } from "@/components/cashier/qr-dialog";
 import { OwnerCharts } from "@/components/owner/owner-charts";
 import { OwnerReviews } from "@/components/owner/owner-reviews";
 import { defaultRange, rangeError, statsErrorText } from "@/lib/owner/stats";
@@ -33,6 +34,7 @@ export function OwnerDashboard({ token, user, onUnauthenticated, onInactive }) {
   const [error, setError] = useState("");
   const [loaded, setLoaded] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [qr, setQr] = useState(null);
   const onUnauthenticatedRef = useRef(onUnauthenticated);
   const onInactiveRef = useRef(onInactive);
 
@@ -146,6 +148,18 @@ export function OwnerDashboard({ token, user, onUnauthenticated, onInactive }) {
     }
   }
 
+  function showSharedQr() {
+    const slug = user.restaurant?.slug;
+    if (!slug) {
+      return;
+    }
+
+    setQr({
+      title: "رمز المطعم",
+      url: `${window.location.origin}/r/${encodeURIComponent(slug)}`,
+    });
+  }
+
   return (
     <div className="min-h-dvh overflow-x-clip bg-[#fcfbfc]">
       <header className="sticky top-0 z-20 border-b border-burgundy/5 bg-white pt-[env(safe-area-inset-top)] shadow-sm">
@@ -159,7 +173,15 @@ export function OwnerDashboard({ token, user, onUnauthenticated, onInactive }) {
               <p className="truncate text-sm font-medium text-ink/50">{user.restaurant.name}</p>
             ) : null}
           </div>
-          <div className="ms-auto flex shrink-0 items-center">
+          <div className="ms-auto flex shrink-0 items-center gap-2">
+            <button
+              type="button"
+              onClick={showSharedQr}
+              disabled={!user.restaurant?.slug}
+              className="inline-flex h-10 cursor-pointer items-center justify-center rounded-xl bg-[#f7f1e4] px-4 text-sm font-semibold text-gold-deep shadow-sm ring-1 ring-inset ring-gold/30 transition duration-300 hover:bg-gold/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold disabled:pointer-events-none disabled:opacity-40"
+            >
+              رمز المطعم
+            </button>
             <HeaderButton onClick={onUnauthenticated}>تسجيل الخروج</HeaderButton>
           </div>
         </div>
@@ -218,6 +240,7 @@ export function OwnerDashboard({ token, user, onUnauthenticated, onInactive }) {
           <OwnerReviews reviews={reviews} timeZone={stats?.timezone || timeZone} />
         ) : null}
       </main>
+      <QrDialog qr={qr} onDismiss={() => setQr(null)} />
     </div>
   );
 }
