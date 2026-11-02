@@ -11,6 +11,32 @@
   --color-gold: #cda649;
   --color-gold-deep: #8c6e2c;
   --color-foam: #f8e8ed;
+  --animate-shake: nadeeni-shake 0.48s ease-in-out;
+
+  @keyframes nadeeni-shake {
+    0%,
+    100% {
+      transform: translateX(0);
+    }
+    15% {
+      transform: translateX(-4px);
+    }
+    30% {
+      transform: translateX(4px);
+    }
+    45% {
+      transform: translateX(-3px);
+    }
+    60% {
+      transform: translateX(3px);
+    }
+    75% {
+      transform: translateX(-2px);
+    }
+    90% {
+      transform: translateX(2px);
+    }
+  }
 }
 
 html {

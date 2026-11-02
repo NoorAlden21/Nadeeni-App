@@ -22,6 +22,7 @@ export function RestaurantEntry({ slug }) {
   const [loaded, setLoaded] = useState(false);
   const [number, setNumber] = useState("");
   const [error, setError] = useState("");
+  const [errorTick, setErrorTick] = useState(0);
   const [busy, setBusy] = useState(false);
   
   const [savedOrder, setSavedOrder] = useState("");
@@ -47,7 +48,7 @@ export function RestaurantEntry({ slug }) {
           setMissing(true);
           return;
         }
-        setError(publicErrorText(requestError, customerCopy.restaurantMissing));
+        showError(publicErrorText(requestError, customerCopy.restaurantMissing));
       })
       .finally(() => {
         if (!stopped) setLoaded(true);
@@ -73,6 +74,11 @@ export function RestaurantEntry({ slug }) {
     return "";
   }
 
+  function showError(text) {
+    setError(text);
+    setErrorTick((tick) => tick + 1);
+  }
+
   async function handleSubmit(event, overrideNumber = null) {
     if (event) event.preventDefault();
     if (busy) return;
@@ -80,7 +86,7 @@ export function RestaurantEntry({ slug }) {
     const targetNumber = overrideNumber || number;
     const problem = orderNumberProblem(targetNumber);
     if (problem) {
-      setError(problem);
+      showError(problem);
       return;
     }
 
@@ -106,7 +112,7 @@ export function RestaurantEntry({ slug }) {
         router.push(nextPath);
       }
     } catch (requestError) {
-      setError(publicErrorText(requestError, customerCopy.orderUnavailable));
+      showError(publicErrorText(requestError, customerCopy.orderUnavailable));
     } finally {
       setBusy(false);
     }
@@ -132,6 +138,17 @@ export function RestaurantEntry({ slug }) {
 
   return (
     <Screen>
+      {error ? (
+        <div className="pointer-events-none fixed inset-x-0 top-0 z-50 flex justify-center px-4 pt-[max(0.75rem,env(safe-area-inset-top))]">
+          <p
+            key={errorTick}
+            role="alert"
+            className="pointer-events-auto w-full max-w-md rounded-2xl bg-foam px-4 py-3 text-center text-sm font-medium leading-6 text-burgundy shadow-[0_18px_40px_-20px_rgba(74,4,24,0.55)] ring-1 ring-burgundy/15 motion-safe:animate-shake"
+          >
+            {error}
+          </p>
+        </div>
+      ) : null}
       <div className="grid w-full items-center gap-8 lg:grid-cols-2 lg:gap-16">
         
         {/* القسم الأيمن / العلوي */}
@@ -225,12 +242,6 @@ export function RestaurantEntry({ slug }) {
               </div>
              
             </div>
-
-            {error ? (
-              <p role="alert" className="rounded-2xl bg-foam px-4 py-3 text-center text-sm font-medium leading-6 text-burgundy">
-                {error}
-              </p>
-            ) : null}
 
             <ActionButton type="submit" size="lg" disabled={busy} className="w-full shadow-sm hover:shadow-md transition-shadow">
               {busy ? "جاري التحقق..." : "تابع طلبي"}
