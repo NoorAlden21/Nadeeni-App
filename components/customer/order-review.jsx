@@ -31,7 +31,7 @@ function Stars({ label, value, onChange }) {
   );
 }
 
-export function OrderReview({ token, status }) {
+export function OrderReview({ token, status, onReviewed }) {
   const open = status === "ready" || status === "collected";
   const [review, setReview] = useState(null);
   const [known, setKnown] = useState(false);
@@ -51,6 +51,7 @@ export function OrderReview({ token, status }) {
       .then((saved) => {
         if (!stopped) {
           setReview(saved);
+          onReviewed?.();
         }
       })
       .catch((requestError) => {
@@ -110,11 +111,13 @@ export function OrderReview({ token, status }) {
         },
       });
       setReview(saved);
+      onReviewed?.();
     } catch (requestError) {
       if (requestError.status === 409 && requestError.body?.message === "already_reviewed") {
         try {
           const saved = await apiFetch(`/public/orders/${encodeURIComponent(token)}/review`);
           setReview(saved);
+          onReviewed?.();
           return;
         } catch {
           setError(customerCopy.alreadyReviewed);

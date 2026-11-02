@@ -70,6 +70,7 @@ export function OrderStatus({ token }) {
   const [noticeOpen, setNoticeOpen] = useState(true);
   const [iconUrl, setIconUrl] = useState("");
   const [iphone, setIphone] = useState(false);
+  const [reviewed, setReviewed] = useState(false);
   const seenStatus = useRef(null);
   const alerted = useRef(false);
 
@@ -175,32 +176,44 @@ export function OrderStatus({ token }) {
     };
   }, [token]);
 
-  async function confirmNotice() {
+  function confirmNotice() {
+    const permissionRequest =
+      typeof Notification !== "undefined" && Notification.permission === "default"
+        ? Notification.requestPermission()
+        : null;
+    const registrationRequest =
+      "serviceWorker" in navigator ? navigator.serviceWorker.register("/sw.js") : null;
+
+    setNoticeOpen(false);
+    void enableAlerts(permissionRequest, registrationRequest);
+  }
+
+  async function enableAlerts(permissionRequest, registrationRequest) {
     await primeReadyAlert();
     if (order?.status === "ready" && !alerted.current && playReadyAlert()) {
       alerted.current = true;
     }
-    setNoticeOpen(false);
-    if (support === "ready") {
-      allowPush();
-      return;
-    }
-    if (typeof Notification !== "undefined" && Notification.permission === "default") {
-      Notification.requestPermission().catch(() => {});
-    }
-  }
 
-  async function allowPush() {
-    if (pushBusy || support !== "ready" || !order || isFinalStatus(order.status)) {
+    const ios = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    const standalone =
+      window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
+    const canPush =
+      Boolean(registrationRequest) &&
+      "PushManager" in window &&
+      "Notification" in window &&
+      Boolean(process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY);
+
+    if ((ios && !standalone) || !canPush || pushBusy || !order || isFinalStatus(order.status)) {
+      registrationRequest?.catch(() => {});
       return;
     }
 
     setPushBusy(true);
     setPushNote("");
     try {
-      const registration = await navigator.serviceWorker.register("/sw.js");
-      const permission = await Notification.requestPermission();
-      if (permission !== "granted") {
+      const permission = permissionRequest ? await permissionRequest : Notification.permission;
+      const registration = await registrationRequest;
+      if (permission !== "granted" || !registration) {
         setPushNote(customerCopy.pushUnavailable);
         return;
       }
@@ -266,11 +279,14 @@ export function OrderStatus({ token }) {
   const collected = order.status === "collected";
   const finalText = statusWords(order.status);
   const showPush = !isFinalStatus(order.status);
+  const pushText =
+    pushNote ||
+    (support === "ios" ? customerCopy.iosPush : support === "unavailable" ? customerCopy.pushUnavailable : "");
 
   // تحديد الخطوة الفعالة في التسلسل
   let activeStep = 1;
   if (ready) activeStep = 2;
-  if (collected) activeStep = 3;
+  if (collected || reviewed) activeStep = 3;
 
   // إخفاء التسلسل في حال الإلغاء أو انتهاء الصلاحية
   const showStepper =
@@ -278,21 +294,23 @@ export function OrderStatus({ token }) {
 
   return (
     <main
-      className={`relative flex min-h-dvh flex-col overflow-x-clip px-4 transition-colors duration-1000 ease-in-out ${
+      className={`relative flex min-h-dvh flex-col px-4 transition-colors duration-1000 ease-in-out ${
         ready ? "bg-burgundy text-white" : "bg-ivory text-ink"
       }`}
     >
       {/* إضاءات خلفية ناعمة */}
-      {ready ? (
-        <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute top-[-10%] left-[-10%] h-96 w-96 rounded-full bg-gold/20 blur-[100px]" />
-          <div className="absolute bottom-[-10%] right-[-10%] h-96 w-96 rounded-full bg-burgundy-deep/40 blur-[100px]" />
-        </div>
-      ) : (
-        <div className="absolute top-1/2 left-1/2 h-[30rem] w-[30rem] -translate-x-1/2 -translate-y-1/2 rounded-full bg-gold/5 blur-[100px] pointer-events-none" />
-      )}
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        {ready ? (
+          <>
+            <div className="absolute top-[-10%] left-[-10%] h-96 w-96 rounded-full bg-gold/20 blur-[100px]" />
+            <div className="absolute bottom-[-10%] right-[-10%] h-96 w-96 rounded-full bg-burgundy-deep/40 blur-[100px]" />
+          </>
+        ) : (
+          <div className="absolute top-1/2 left-1/2 h-[30rem] w-[30rem] -translate-x-1/2 -translate-y-1/2 rounded-full bg-gold/5 blur-[100px]" />
+        )}
+      </div>
 
-      <div className="relative z-10 mx-auto flex w-full max-w-sm flex-1 flex-col items-center justify-center py-10 text-center">
+      <div className="relative z-10 mx-auto flex w-full max-w-sm flex-1 flex-col items-center py-10 text-center" style={{ justifyContent: "safe center" }}>
         
         {/* رأس الصفحة (اسم المطعم) */}
         <div className={`mb-6 flex items-center gap-2 rounded-full px-5 py-2 backdrop-blur-sm ${ready ? "bg-black/10 border border-white/10" : "bg-white/50 border border-burgundy/5 shadow-sm"}`}>
@@ -351,7 +369,7 @@ export function OrderStatus({ token }) {
                 <div className="relative z-10 flex flex-col items-center gap-2">
                   <div className={`relative flex h-10 w-10 items-center justify-center rounded-full transition-colors duration-500 ${
                     activeStep === 2 ? 'bg-gold text-burgundy-deep shadow-[0_0_15px_rgba(205,166,73,0.5)]' : 
-                    activeStep > 2 ? 'bg-gold text-white shadow-sm' : 
+                    activeStep > 2 ? 'bg-gold text-burgundy-deep shadow-sm' : 
                     'border-2 bg-white/50 ' + (ready ? 'border-white/30 text-white/50' : 'border-burgundy/15 text-burgundy/30')
                   }`}>
                     {activeStep === 2 && (
@@ -369,7 +387,7 @@ export function OrderStatus({ token }) {
                   </div>
                   <span className={`absolute -bottom-6 text-xs font-bold whitespace-nowrap ${
                     activeStep === 2 ? 'text-white' : 
-                    activeStep > 2 ? 'text-ink/60' : 
+                    activeStep > 2 ? (ready ? 'text-white/80' : 'text-ink/60') : 
                     (ready ? 'text-white/50' : 'text-ink/40')
                   }`}>جاهز</span>
                 </div>
@@ -377,15 +395,21 @@ export function OrderStatus({ token }) {
                 {/* الخطوة 3: الاستلام */}
                 <div className="relative z-10 flex flex-col items-center gap-2">
                   <div className={`relative flex h-10 w-10 items-center justify-center rounded-full transition-colors duration-500 ${
-                    activeStep === 3 ? 'bg-burgundy text-white shadow-md' : 
-                    'border-2 bg-white/50 ' + (ready ? 'border-white/30 text-white/50' : 'border-burgundy/15 text-burgundy/30')
+                    activeStep === 3
+                      ? (ready
+                        ? 'bg-gold text-burgundy-deep shadow-[0_0_15px_rgba(205,166,73,0.5)]'
+                        : 'bg-burgundy text-white shadow-md')
+                      : 'border-2 bg-white/50 ' + (ready ? 'border-white/30 text-white/50' : 'border-burgundy/15 text-burgundy/30')
                   }`}>
+                    {activeStep === 3 ? (
+                      <div className={`absolute inset-0 rounded-full border-2 opacity-75 animate-[ping_2s_cubic-bezier(0,0,0.2,1)_infinite] ${ready ? "border-gold" : "border-burgundy"}`} />
+                    ) : null}
                     <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5V6a3.75 3.75 0 10-7.5 0v4.5m11.356-1.993l1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 01-1.12-1.243l1.264-12A1.125 1.125 0 015.513 7.5h12.974c.576 0 1.059.435 1.119 1.007zM8.625 10.5a.375.375 0 11-.75 0 .375.375 0 01.75 0zm7.5 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
                     </svg>
                   </div>
                   <span className={`absolute -bottom-6 text-xs font-bold whitespace-nowrap ${
-                    activeStep === 3 ? 'text-burgundy-deep' : (ready ? 'text-white/50' : 'text-ink/40')
+                    activeStep === 3 ? (ready ? 'text-white' : 'text-burgundy-deep') : (ready ? 'text-white/50' : 'text-ink/40')
                   }`}>مكتمل</span>
                 </div>
 
@@ -432,9 +456,6 @@ export function OrderStatus({ token }) {
                       {customerCopy.preparing}
                     </p>
                   </div>
-                  <p className="mt-5 text-xs font-semibold text-ink/40 bg-ivory rounded-lg px-4 py-2 border border-burgundy/5">
-                    {customerCopy.refreshing}
-                  </p>
                 </div>
               )}
             </div>
@@ -442,38 +463,12 @@ export function OrderStatus({ token }) {
         </div>
 
         {/* قسم الإشعارات (Push Notifications) */}
-        {showPush ? (
-          <div className="mt-8 w-full">
-            {support === "ready" ? (
-              <button
-                type="button"
-                onClick={allowPush}
-                disabled={pushBusy}
-                className={`group relative inline-flex h-14 w-full cursor-pointer items-center justify-center gap-3 rounded-2xl px-6 text-sm font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed overflow-hidden ${
-                  ready 
-                    ? "bg-white text-burgundy-deep hover:bg-ivory shadow-lg" 
-                    : "bg-burgundy-deep text-white hover:bg-burgundy shadow-md hover:shadow-lg"
-                }`}
-              >
-                <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent group-hover:animate-[shimmer_1.5s_infinite]" />
-                
-                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
-                </svg>
-                {pushBusy ? "جاري التفعيل..." : customerCopy.allowPush}
-              </button>
-            ) : null}
-            
-            <div className={`mt-4 flex items-start gap-2 text-right text-xs font-medium leading-relaxed ${ready ? "text-white/60" : "text-ink/50"}`}>
-              {(pushNote || support === "ios" || support === "unavailable") && (
-                <svg className="mt-0.5 h-4 w-4 shrink-0 opacity-70" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
-                </svg>
-              )}
-              <p>
-                {pushNote || (support === "ios" ? customerCopy.iosPush : support === "unavailable" ? customerCopy.pushUnavailable : "")}
-              </p>
-            </div>
+        {showPush && pushText ? (
+          <div className={`mt-8 flex items-start gap-2 text-right text-xs font-medium leading-relaxed ${ready ? "text-white/60" : "text-ink/50"}`}>
+            <svg className="mt-0.5 h-4 w-4 shrink-0 opacity-70" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
+            </svg>
+            <p>{pushText}</p>
           </div>
         ) : null}
 
@@ -483,19 +478,13 @@ export function OrderStatus({ token }) {
           </div>
         ) : null}
 
-        <OrderReview token={token} status={order.status} />
+        <OrderReview token={token} status={order.status} onReviewed={() => setReviewed(true)} />
       </div>
       <PoweredBy className="relative z-10 pb-[max(1rem,env(safe-area-inset-bottom))]" />
       
       {noticeOpen && !isFinalStatus(order.status) ? (
         <ArrivalNotice iphone={iphone} onConfirm={confirmNotice} />
       ) : null}
-
-      <style>{`
-        @keyframes shimmer {
-          100% { transform: translateX(100%); }
-        }
-      `}</style>
     </main>
   );
 }
