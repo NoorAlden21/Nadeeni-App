@@ -8,6 +8,7 @@ import { CancelDialog } from "@/components/cashier/cancel-dialog";
 import { OrderComposer } from "@/components/cashier/order-composer";
 import { OrderLane } from "@/components/cashier/order-lane";
 import { QrDialog } from "@/components/cashier/qr-dialog";
+import { UncollectDialog } from "@/components/cashier/uncollect-dialog";
 import {
   cashierCopy,
   isDuplicateNumber,
@@ -38,6 +39,8 @@ export function CashierDashboard({ token, user, onUnauthenticated, onInactive })
   const [now, setNow] = useState(null);
   const [cancelTarget, setCancelTarget] = useState(null);
   const [canceling, setCanceling] = useState(false);
+  const [uncollectTarget, setUncollectTarget] = useState(null);
+  const [uncollecting, setUncollecting] = useState(false);
   const [qr, setQr] = useState(null);
   const onUnauthenticatedRef = useRef(onUnauthenticated);
   const onInactiveRef = useRef(onInactive);
@@ -314,6 +317,36 @@ export function CashierDashboard({ token, user, onUnauthenticated, onInactive })
     });
   }
 
+  function requestUncollect(id) {
+    const order = orders.find((item) => item.id === id && item.status === "ready");
+    if (!order) {
+      return;
+    }
+    setUncollectTarget(order);
+  }
+
+  async function confirmUncollect() {
+    if (!uncollectTarget || uncollecting) {
+      return;
+    }
+
+    setUncollecting(true);
+    try {
+      const order = await apiFetch(`/orders/${encodeURIComponent(uncollectTarget.id)}/uncollect`, {
+        token,
+        method: "POST",
+      });
+      setOrders((current) => mergeOrder(current, order));
+      setUncollectTarget(null);
+      setMessage(null);
+    } catch (error) {
+      setUncollectTarget(null);
+      handleFailure(error);
+    } finally {
+      setUncollecting(false);
+    }
+  }
+
   function requestCancel(id) {
     const order = orders.find((item) => item.id === id && item.status === "waiting");
     if (!order) {
@@ -457,7 +490,10 @@ export function CashierDashboard({ token, user, onUnauthenticated, onInactive })
             orders={ready}
             timeZone={timeZone}
             showEmpty={loaded}
-            onShowQr={showOrderQr}
+            trailing={{
+              label: "لم يُستلم",
+              onAction: requestUncollect,
+            }}
             primary={{
               label: "تم الاستلام",
               onAction: handleDeliver,
@@ -469,6 +505,14 @@ export function CashierDashboard({ token, user, onUnauthenticated, onInactive })
           />
         </div>
       </main>
+      <UncollectDialog
+        order={uncollectTarget}
+        pending={uncollecting}
+        onConfirm={confirmUncollect}
+        onDismiss={() => {
+          if (!uncollecting) setUncollectTarget(null);
+        }}
+      />
       <CancelDialog
         order={cancelTarget}
         pending={canceling}

@@ -18,6 +18,7 @@ import { playReadyAlert, primeReadyAlert } from "@/lib/customer/ready-alert";
 function statusWords(status) {
   if (status === "collected") return customerCopy.collected;
   if (status === "cancelled") return customerCopy.cancelled;
+  if (status === "uncollected") return customerCopy.uncollected;
   if (status === "expired") return customerCopy.expired;
   return "";
 }
@@ -272,7 +273,8 @@ export function OrderStatus({ token }) {
   if (collected) activeStep = 3;
 
   // إخفاء التسلسل في حال الإلغاء أو انتهاء الصلاحية
-  const showStepper = order.status !== "cancelled" && order.status !== "expired";
+  const showStepper =
+    order.status !== "cancelled" && order.status !== "expired" && order.status !== "uncollected";
 
   return (
     <main

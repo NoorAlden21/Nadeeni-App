@@ -3,6 +3,7 @@
 import { countOf, formatDayLabel, formatRating, formatReadyDuration, formatShare, sharePercent } from "@/lib/owner/stats";
 
 const gold = "#cda649";
+const goldDeep = "#8c6e2c";
 const burgundy = "#7e062a";
 const burgundyDeep = "#4a0418";
 const foam = "#f8e8ed";
@@ -134,10 +135,11 @@ export function OwnerCharts({ stats, from, to }) {
   const orders = countOf(stats?.orders);
   const ready = countOf(stats?.ready_orders);
   const cancelled = countOf(stats?.cancelled_orders);
+  const uncollected = countOf(stats?.uncollected_orders);
   const fresh = countOf(stats?.new_browsers);
   const returning = countOf(stats?.returning_browsers);
   const browsers = fresh + returning;
-  const scale = Math.max(orders, ready, cancelled, 1);
+  const scale = Math.max(orders, ready, cancelled, uncollected, 1);
 
   return (
     <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
@@ -168,6 +170,11 @@ export function OwnerCharts({ stats, from, to }) {
         <div className="mt-5 grid grid-cols-2 gap-4 sm:grid-cols-3">
           <Figure label="الطلبات" value={orders} />
           <Figure label="صارت جاهزة" value={ready} detail={orders > 0 ? `${ready}/${orders}` : "—"} />
+          <Figure
+            label="لم تُستلم"
+            value={uncollected}
+            detail={orders > 0 ? `${uncollected}/${orders}` : "—"}
+          />
           <Figure label="متوسط التجهيز" value={formatReadyDuration(stats?.average_ready_seconds)} compact />
           <Figure label="أطول تجهيز" value={formatReadyDuration(stats?.longest_ready_seconds)} compact />
           <Figure label="تقييم الخدمة" value={formatRating(stats?.average_service_rating)} compact />
@@ -178,11 +185,12 @@ export function OwnerCharts({ stats, from, to }) {
             <Meter label="الطلبات" value={orders} max={scale} color={burgundyDeep} />
             <Meter label="صارت جاهزة" value={ready} max={scale} color={gold} />
             <Meter label="أُلغيت" value={cancelled} max={scale} color={burgundy} />
+            <Meter label="لم تُستلم" value={uncollected} max={scale} color={goldDeep} />
           </div>
           <ReadyRing ready={ready} total={orders} />
         </div>
         <p className="mt-4 text-sm leading-6 text-ink/55">
-          الحلقة نسبة الطلبات التي صار لها وقت تجهيز. الإلغاء يُحسب وحده، وقد يبقى الطلب ضمن الجاهزة إذا جُهّز ثم أُلغي.
+          الحلقة نسبة الطلبات التي صار لها وقت تجهيز. الإلغاء وعدم الاستلام يُحسب كل منهما وحده، وقد يبقى الطلب ضمن الجاهزة إذا جُهّز ثم أُلغي أو سُجّل غير مستلم.
         </p>
       </Card>
     </div>

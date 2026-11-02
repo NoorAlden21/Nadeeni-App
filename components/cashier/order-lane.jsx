@@ -69,6 +69,7 @@ function OrderCard({
   secondary,
   onUpdate,
   onShowQr,
+  trailing,
   timeZone,
 }) {
   const [editing, setEditing] = useState(false);
@@ -273,7 +274,15 @@ function OrderCard({
                       {secondary.label}
                     </span>
                   </ActionButton>
-                  {onShowQr ? (
+                  {trailing ? (
+                    <QuietAction
+                      onClick={() => trailing.onAction(order.id)}
+                      aria-label={`${trailing.label} للطلب ${order.order_number}`}
+                      className="shrink-0 whitespace-nowrap"
+                    >
+                      {trailing.label}
+                    </QuietAction>
+                  ) : onShowQr ? (
                     <QuietAction
                       onClick={() => onShowQr(order.id)}
                       aria-label={`عرض رمز الطلب ${order.order_number}`}
@@ -314,6 +323,7 @@ export function OrderLane({
   secondary,
   onUpdate,
   onShowQr,
+  trailing,
   timeZone,
   showEmpty = true,
 }) {
@@ -373,6 +383,7 @@ export function OrderLane({
                   secondary={secondary}
                   onUpdate={onUpdate}
                   onShowQr={onShowQr}
+                  trailing={trailing}
                   timeZone={timeZone}
                 />
               </motion.li>
