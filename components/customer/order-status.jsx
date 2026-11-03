@@ -306,8 +306,8 @@ export function OrderStatus({ token }) {
 
   return (
     <main
-      className={`relative flex min-h-dvh flex-col px-4 transition-colors duration-1000 ease-in-out ${
-        ready ? "bg-burgundy text-white" : "bg-ivory text-ink"
+      className={`relative flex flex-col px-4 transition-colors duration-1000 ease-in-out ${
+        ready ? "h-dvh overflow-hidden bg-burgundy text-white" : "min-h-dvh bg-ivory text-ink"
       }`}
     >
       {/* إضاءات خلفية ناعمة */}
@@ -322,7 +322,12 @@ export function OrderStatus({ token }) {
         )}
       </div>
 
-      <div className="relative z-10 mx-auto flex w-full max-w-sm flex-1 flex-col items-center py-10 text-center" style={{ justifyContent: "safe center" }}>
+      <div
+        className={`relative z-10 mx-auto flex w-full max-w-sm flex-1 flex-col items-center text-center ${
+          ready ? "min-h-0 justify-center py-3" : "py-10"
+        }`}
+        style={ready ? undefined : { justifyContent: "safe center" }}
+      >
         
         {/* رأس الصفحة (اسم المطعم) */}
         <div className={`mb-6 flex items-center gap-2 rounded-full px-5 py-2 backdrop-blur-sm ${ready ? "bg-black/10 border border-white/10" : "bg-white/50 border border-burgundy/5 shadow-sm"}`}>
@@ -335,24 +340,24 @@ export function OrderStatus({ token }) {
         </div>
 
         {/* القسم الرئيسي للبطاقة */}
-        <div className={`w-full rounded-[2.5rem] p-8 sm:p-10 ${
-          ready 
-            ? "bg-transparent" 
-            : "bg-white shadow-[0_20px_60px_-15px_rgba(0,0,0,0.05)] border border-burgundy/5"
+        <div className={`w-full ${
+          ready
+            ? ""
+            : "rounded-[2.5rem] border border-burgundy/5 bg-white p-8 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.05)] sm:p-10"
         }`}>
           
           {/* شريط التسلسل الذكي (Progress Stepper) */}
           {showStepper && (
-            <div className="mb-12 w-full max-w-[16rem] mx-auto">
+            <div className={`${ready ? "mb-10" : "mb-12"} mx-auto w-full max-w-[16rem]`}>
               <div className="relative flex justify-between">
-                {/* خط الخلفية */}
-                <div className={`absolute top-5 right-5 left-5 h-[2px] z-0 ${ready ? 'bg-white/20' : 'bg-burgundy/10'}`} />
-                
-                {/* خط التقدم */}
-                <div 
-                  className="absolute top-5 right-5 h-[2px] bg-gold z-0 transition-all duration-1000 ease-out"
-                  style={{ width: activeStep === 1 ? '0%' : activeStep === 2 ? '50%' : '100%' }}
-                />
+                {/* الخط يمتد من منتصف الدائرة الأولى إلى منتصف الأخيرة فقط */}
+                <div className="absolute top-5 right-5 left-5 z-0 h-[2px]">
+                  <div className={`absolute inset-0 ${ready ? "bg-white/20" : "bg-burgundy/10"}`} />
+                  <div
+                    className="absolute inset-y-0 right-0 bg-gold transition-all duration-1000 ease-out"
+                    style={{ width: activeStep === 1 ? "0%" : activeStep === 2 ? "50%" : "100%" }}
+                  />
+                </div>
 
                 {/* الخطوة 1: التحضير */}
                 <div className="relative z-10 flex flex-col items-center gap-2">
@@ -438,11 +443,11 @@ export function OrderStatus({ token }) {
               className="flex flex-col items-center"
             >
               <ReadyMark animate={!reduceMotion} />
-              <h1 className="mt-8 font-display text-4xl font-black tracking-tight text-white sm:text-5xl drop-shadow-md">
+              <h1 className="mt-5 font-display text-4xl font-black tracking-tight text-white drop-shadow-md sm:text-5xl">
                 {customerCopy.ready}
               </h1>
               
-              <div className="mt-6 flex flex-col items-center gap-3">
+              <div className="mt-4 flex flex-col items-center gap-2">
                 <p className="text-lg font-medium text-white/80">{customerCopy.pickup}</p>
                 <div className="inline-flex items-center gap-2 rounded-2xl bg-gold/20 px-6 py-3 border border-gold/30 backdrop-blur-md">
                   <span className="text-sm font-semibold text-gold-deep">رقم الطلب</span>
@@ -500,7 +505,7 @@ export function OrderStatus({ token }) {
 
         <OrderReview token={token} status={order.status} onReviewed={() => setReviewed(true)} />
       </div>
-      <PoweredBy className="relative z-10 pb-[max(1rem,env(safe-area-inset-bottom))]" />
+      <PoweredBy className={`relative z-10 pb-[max(0.75rem,env(safe-area-inset-bottom))] ${ready ? "!mt-3" : ""}`} />
       
       {noticeOpen && !isFinalStatus(order.status) ? (
         <ArrivalNotice iphone={iphone} onConfirm={confirmNotice} />

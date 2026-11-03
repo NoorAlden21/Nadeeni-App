@@ -5,6 +5,28 @@ import { createPortal } from "react-dom";
 import { apiFetch } from "@/lib/api/client";
 import { customerCopy, publicErrorText } from "@/lib/customer/public";
 
+function ScoreStars({ label, value, light }) {
+  const score = Number(value) || 0;
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <span className={`text-sm font-semibold ${light ? "text-white/85" : "text-burgundy-deep"}`}>{label}</span>
+      <span className="flex gap-0.5" aria-label={`${label} ${score} من 5`}>
+        {[1, 2, 3, 4, 5].map((star) => (
+          <svg
+            key={star}
+            viewBox="0 0 24 24"
+            className={`size-4 ${star <= score ? "text-gold" : light ? "text-white/25" : "text-ink/20"}`}
+            aria-hidden="true"
+            fill="currentColor"
+          >
+            <path d="M12 3.2 14.1 7.9l5.1.6-3.8 3.5.9 5.1L12 14.8 7.7 17.1l.9-5.1-3.8-3.5 5.1-.6L12 3.2z" />
+          </svg>
+        ))}
+      </span>
+    </div>
+  );
+}
+
 function Stars({ label, value, onChange }) {
   return (
     <fieldset className="min-w-0">
@@ -107,12 +129,25 @@ export function OrderReview({ token, status, onReviewed }) {
   }
 
   if (review) {
+    const onReady = status === "ready";
     return (
-      <section className="mt-6 w-full rounded-[1.75rem] bg-paper p-5 text-center ring-1 ring-burgundy/10">
-        <h2 className="font-display text-xl font-semibold text-burgundy-deep">تقييمكم</h2>
-        <p className="mt-3 text-sm text-ink/70">الخدمة والانتظار: {review.service_rating} من 5</p>
-        <p className="mt-1 text-sm text-ink/70">الطعام: {review.food_rating} من 5</p>
-        {review.message ? <p className="mt-3 text-sm leading-6 text-ink/80">{review.message}</p> : null}
+      <section
+        className={`mt-4 w-full rounded-[1.75rem] px-4 py-3 text-center backdrop-blur-md ${
+          onReady
+            ? "border border-gold/30 bg-gold/15"
+            : "bg-paper ring-1 ring-burgundy/10"
+        }`}
+      >
+        <h2 className={`font-display text-lg font-semibold ${onReady ? "text-white" : "text-burgundy-deep"}`}>
+          تقييمكم
+        </h2>
+        <div className="mt-2 flex flex-col gap-1.5">
+          <ScoreStars label="الخدمة والانتظار" value={review.service_rating} light={onReady} />
+          <ScoreStars label="الطعام" value={review.food_rating} light={onReady} />
+        </div>
+        {review.message ? (
+          <p className={`mt-2 text-sm leading-6 ${onReady ? "text-white/80" : "text-ink/75"}`}>{review.message}</p>
+        ) : null}
       </section>
     );
   }
