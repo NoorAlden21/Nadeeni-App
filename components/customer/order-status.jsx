@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { PoweredBy } from "@/components/brand/powered-by";
 import { OrderReview } from "@/components/customer/order-review";
+import { PlayWhileWaiting } from "@/components/games/play-while-waiting";
 import { apiFetch } from "@/lib/api/client";
 import {
   customerCopy,
@@ -73,6 +74,7 @@ export function OrderStatus({ token }) {
   const [reviewed, setReviewed] = useState(false);
   const seenStatus = useRef(null);
   const alerted = useRef(false);
+  const gameWasOpen = useRef(false);
 
   useEffect(() => {
     setIphone(/iPhone/.test(navigator.userAgent));
@@ -175,6 +177,13 @@ export function OrderStatus({ token }) {
       document.removeEventListener("visibilitychange", onVisibilityChange);
     };
   }, [token]);
+
+  useEffect(() => {
+    if (order?.status && order.status !== "waiting" && gameWasOpen.current) {
+      gameWasOpen.current = false;
+      window.scrollTo(0, 0);
+    }
+  }, [order?.status]);
 
   function confirmNotice() {
     const permissionRequest =
@@ -460,6 +469,14 @@ export function OrderStatus({ token }) {
               )}
             </div>
           )}
+          {order.status === "waiting" ? (
+            <PlayWhileWaiting
+              orderNumber={order.order_number}
+              onOpenChange={(open) => {
+                gameWasOpen.current = open;
+              }}
+            />
+          ) : null}
         </div>
 
         {/* قسم الإشعارات (Push Notifications) */}
