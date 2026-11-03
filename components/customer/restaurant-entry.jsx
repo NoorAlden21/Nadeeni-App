@@ -155,10 +155,7 @@ export function RestaurantEntry({ slug }) {
         {/* القسم الأيمن / العلوي */}
         <div className="flex flex-col items-center text-center lg:items-start lg:text-start">
           <div className="mb-8 flex flex-col items-center lg:mb-10 lg:items-start">
-            <div className="flex items-center gap-2.5">
-              <span className="text-3xl" aria-hidden="true">👋</span>
-              <p className="text-xl font-extrabold text-gold-deep sm:text-2xl">أهلاً بك في مطعم</p>
-            </div>
+            <p className="text-xl font-extrabold text-gold-deep sm:text-2xl">أهلاً بك في مطعم</p>
             {name ? (
               <div className="mt-3 flex items-center gap-3">
                 {iconUrl ? (
