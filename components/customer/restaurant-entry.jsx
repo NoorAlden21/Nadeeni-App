@@ -4,7 +4,9 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { PoweredBy } from "@/components/brand/powered-by";
 import { ActionButton } from "@/components/cashier/action-button";
+import { PublicMenu } from "@/components/customer/public-menu";
 import { apiFetch, restaurantIconSrc } from "@/lib/api/client";
+import { readPublicMenu } from "@/lib/customer/public-menu";
 import {
   customerCopy,
   orderNumberProblem,
@@ -24,16 +26,33 @@ export function RestaurantEntry({ slug }) {
   const [error, setError] = useState("");
   const [errorTick, setErrorTick] = useState(0);
   const [busy, setBusy] = useState(false);
-  
+  const [menu, setMenu] = useState([]);
+  const [menuLoaded, setMenuLoaded] = useState(false);
+  const [browsing, setBrowsing] = useState(false);
   const [savedOrder, setSavedOrder] = useState("");
 
   useEffect(() => {
     let stopped = false;
 
+    setBrowsing(false);
+    setMenu([]);
+    setMenuLoaded(false);
+
     if (typeof window !== "undefined") {
       const last = localStorage.getItem(`nadeeni_last_order_${slug}`);
       if (last) setSavedOrder(last);
     }
+
+    apiFetch(`/public/restaurants/${encodeURIComponent(slug)}/menu`)
+      .then((payload) => {
+        if (!stopped) setMenu(readPublicMenu(payload));
+      })
+      .catch(() => {
+        if (!stopped) setMenu([]);
+      })
+      .finally(() => {
+        if (!stopped) setMenuLoaded(true);
+      });
 
     apiFetch(`/public/restaurants/${encodeURIComponent(slug)}`)
       .then((restaurant) => {
@@ -133,6 +152,20 @@ export function RestaurantEntry({ slug }) {
         <p className="max-w-md text-center text-lg font-semibold leading-8 text-burgundy-deep">
           {customerCopy.restaurantMissing}
         </p>
+      </Screen>
+    );
+  }
+
+  if (browsing) {
+    return (
+      <Screen align="start">
+        <PublicMenu
+          name={name}
+          iconUrl={iconUrl}
+          categories={menu}
+          loading={!menuLoaded}
+          onBack={() => setBrowsing(false)}
+        />
       </Screen>
     );
   }
@@ -249,6 +282,18 @@ export function RestaurantEntry({ slug }) {
             </ActionButton>
           </form>
 
+          <ActionButton
+            variant="quiet"
+            className="w-full"
+            onClick={() => {
+              setError("");
+              window.scrollTo(0, 0);
+              setBrowsing(true);
+            }}
+          >
+            {customerCopy.browseMenu}
+          </ActionButton>
+
           {savedOrder && !number && !busy && (
             <div className="mt-1 flex flex-col items-center border-t border-burgundy/5 pt-4 relative z-10">
               <p className="mb-2 text-xs font-medium text-ink/50">هل تبحث عن طلبك السابق؟</p>
@@ -269,12 +314,12 @@ export function RestaurantEntry({ slug }) {
   );
 }
 
-function Screen({ children }) {
+function Screen({ children, align = "center" }) {
   return (
-    <main className="flex min-h-dvh flex-col overflow-x-clip bg-ivory px-4 pt-[max(2rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-8 lg:px-12">
-      <div className="my-auto w-full max-w-5xl self-center">{children}</div>
-      
-      <PoweredBy className="text-ink/70" />
+    <main className={`flex min-h-dvh flex-col overflow-x-clip bg-ivory px-4 pb-[max(1rem,env(safe-area-inset-bottom))] [overflow-anchor:none] sm:px-8 lg:px-12 ${align === "start" ? "pt-[max(0.75rem,env(safe-area-inset-top))]" : "pt-[max(2rem,env(safe-area-inset-top))]"}`}>
+      <div className={`${align === "start" ? "" : "my-auto"} w-full max-w-5xl self-center`}>{children}</div>
+
+      {align === "center" ? <PoweredBy className="text-ink/70" /> : null}
     </main>
   );
 }
