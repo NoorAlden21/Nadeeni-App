@@ -153,9 +153,25 @@ export function RestaurantEntry({ slug }) {
         
         {/* القسم الأيمن / العلوي */}
         <div className="flex flex-col items-center text-center lg:items-start lg:text-start">
-          
+          <div className="mb-8 flex flex-col items-center lg:mb-10 lg:items-start">
+            <div className="flex items-center gap-2.5">
+              <span className="text-3xl" aria-hidden="true">👋</span>
+              <p className="text-xl font-extrabold text-gold-deep sm:text-2xl">أهلاً بك في مطعم</p>
+            </div>
+            {name ? (
+              <div className="mt-3 flex items-center gap-3">
+                {iconUrl ? (
+                  <img src={iconUrl} alt="" className="h-12 w-12 shrink-0 rounded-2xl object-cover ring-1 ring-burgundy/10 sm:h-14 sm:w-14" />
+                ) : null}
+                <h1 className="max-w-full font-display text-4xl font-bold wrap-break-word text-burgundy-deep sm:text-5xl lg:text-6xl">
+                  {name}
+                </h1>
+              </div>
+            ) : null}
+          </div>
+
           {/* تسلسل النظام (Progress Stepper) بدلاً من الفاتورة */}
-          <div className="w-full max-w-[18rem] sm:max-w-xs mb-8 lg:mb-12">
+          <div className="mb-8 w-full max-w-[18rem] sm:max-w-xs lg:mb-12">
             <div className="relative flex justify-between">
               {/* خط الخلفية */}
               <div className="absolute top-5 right-6 left-6 h-[2px] bg-burgundy/10 z-0" />
@@ -195,20 +211,7 @@ export function RestaurantEntry({ slug }) {
               </div>
             </div>
           </div>
-          
-          {iconUrl ? (
-            <img src={iconUrl} alt="" className="mb-4 h-20 w-20 rounded-[1.5rem] object-cover ring-1 ring-burgundy/10 sm:h-24 sm:w-24" />
-          ) : null}
-          <div className="flex items-center gap-2">
-            <span className="text-xl opacity-80">👋</span>
-            <p className="text-sm font-semibold text-gold-deep sm:text-base">أهلاً بك في مطعم</p>
-          </div>
-          
-          {name ? (
-            <h1 className="mt-2 max-w-full font-display text-4xl font-semibold wrap-break-word text-burgundy-deep sm:text-5xl lg:text-6xl">
-              {name}
-            </h1>
-          ) : null}
+
           <p className="mt-3 max-w-md text-base leading-7 text-ink/70 sm:text-lg">
             اكتبوا رقم الطلب كما سجّله الكاشير.
           </p>
