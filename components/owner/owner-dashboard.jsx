@@ -7,6 +7,8 @@ import { apiFetch } from "@/lib/api/client";
 import { QrDialog } from "@/components/cashier/qr-dialog";
 import { OwnerCharts } from "@/components/owner/owner-charts";
 import { OwnerReviews } from "@/components/owner/owner-reviews";
+import { RestaurantMenu } from "@/components/menu/restaurant-menu";
+import { ScreenSwitch } from "@/components/menu/screen-switch";
 import { qrTargetUrl } from "@/lib/qr/download";
 import { defaultRange, rangeError, statsErrorText } from "@/lib/owner/stats";
 
@@ -36,6 +38,7 @@ export function OwnerDashboard({ token, user, onUnauthenticated, onInactive }) {
   const [loaded, setLoaded] = useState(false);
   const [busy, setBusy] = useState(false);
   const [qr, setQr] = useState(null);
+  const [screen, setScreen] = useState("stats");
   const onUnauthenticatedRef = useRef(onUnauthenticated);
   const onInactiveRef = useRef(onInactive);
 
@@ -168,7 +171,7 @@ export function OwnerDashboard({ token, user, onUnauthenticated, onInactive }) {
           <BrandMark className="h-10 w-10 sm:h-12 sm:w-12" />
           <div className="min-w-0">
             <h1 className="truncate font-display text-xl font-bold text-burgundy-deep sm:text-2xl">
-              إحصاءات المطعم
+              {screen === "menu" ? "قائمة المطعم" : "إحصاءات المطعم"}
             </h1>
             {user.restaurant?.name ? (
               <p className="truncate text-sm font-medium text-ink/50">{user.restaurant.name}</p>
@@ -186,9 +189,23 @@ export function OwnerDashboard({ token, user, onUnauthenticated, onInactive }) {
             <HeaderButton onClick={onUnauthenticated}>تسجيل الخروج</HeaderButton>
           </div>
         </div>
+        <div className="mx-auto w-full max-w-7xl px-4 pb-3 sm:px-8">
+          <ScreenSwitch
+            value={screen}
+            onChange={setScreen}
+            options={[
+              { id: "stats", label: "الإحصاءات" },
+              { id: "menu", label: "القائمة" },
+            ]}
+          />
+        </div>
       </header>
 
       <main className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 pt-6 pb-[max(2rem,env(safe-area-inset-bottom))] sm:gap-8 sm:px-8 sm:pt-8 sm:pb-12">
+        {screen === "menu" ? (
+          <RestaurantMenu token={token} onUnauthenticated={onUnauthenticated} onInactive={onInactive} />
+        ) : (
+          <>
         <form
           onSubmit={handleSubmit}
           className="grid grid-cols-1 gap-4 rounded-[1.5rem] bg-white p-5 shadow-[0_2px_12px_rgba(0,0,0,0.02)] border border-burgundy/5 sm:grid-cols-[1fr_1fr_auto] sm:items-end sm:p-6"
@@ -240,6 +257,8 @@ export function OwnerDashboard({ token, user, onUnauthenticated, onInactive }) {
         {reviews ? (
           <OwnerReviews reviews={reviews} timeZone={stats?.timezone || timeZone} />
         ) : null}
+          </>
+        )}
       </main>
       <QrDialog qr={qr} onDismiss={() => setQr(null)} />
     </div>

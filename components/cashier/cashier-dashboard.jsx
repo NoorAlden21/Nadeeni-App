@@ -9,6 +9,8 @@ import { OrderComposer } from "@/components/cashier/order-composer";
 import { OrderLane } from "@/components/cashier/order-lane";
 import { QrDialog } from "@/components/cashier/qr-dialog";
 import { UncollectDialog } from "@/components/cashier/uncollect-dialog";
+import { RestaurantMenu } from "@/components/menu/restaurant-menu";
+import { ScreenSwitch } from "@/components/menu/screen-switch";
 import {
   cashierCopy,
   isDuplicateNumber,
@@ -42,6 +44,7 @@ export function CashierDashboard({ token, user, onUnauthenticated, onInactive })
   const [uncollectTarget, setUncollectTarget] = useState(null);
   const [uncollecting, setUncollecting] = useState(false);
   const [qr, setQr] = useState(null);
+  const [screen, setScreen] = useState("orders");
   const onUnauthenticatedRef = useRef(onUnauthenticated);
   const onInactiveRef = useRef(onInactive);
   const busyIds = useRef(new Set());
@@ -438,9 +441,23 @@ export function CashierDashboard({ token, user, onUnauthenticated, onInactive })
             <HeaderButton onClick={onUnauthenticated}>خروج</HeaderButton>
           </div>
         </div>
+        <div className="mx-auto w-full max-w-7xl px-3 pb-3 sm:px-6">
+          <ScreenSwitch
+            value={screen}
+            onChange={setScreen}
+            options={[
+              { id: "orders", label: "الطلبات" },
+              { id: "menu", label: "القائمة" },
+            ]}
+          />
+        </div>
       </header>
 
       <main className="mx-auto flex w-full max-w-7xl flex-col gap-4 px-3 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:gap-6 sm:px-6 sm:pt-8 sm:pb-8">
+        {screen === "menu" ? (
+          <RestaurantMenu token={token} onUnauthenticated={onUnauthenticated} onInactive={onInactive} />
+        ) : (
+          <>
         <OrderComposer
           draft={draft}
           message={message}
@@ -504,6 +521,8 @@ export function CashierDashboard({ token, user, onUnauthenticated, onInactive })
             }}
           />
         </div>
+          </>
+        )}
       </main>
       <UncollectDialog
         order={uncollectTarget}
