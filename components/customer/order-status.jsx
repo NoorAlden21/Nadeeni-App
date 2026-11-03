@@ -5,7 +5,7 @@ import { motion, useReducedMotion } from "framer-motion";
 import { PoweredBy } from "@/components/brand/powered-by";
 import { OrderReview } from "@/components/customer/order-review";
 import { PlayWhileWaiting } from "@/components/games/play-while-waiting";
-import { apiFetch } from "@/lib/api/client";
+import { apiFetch, restaurantIconSrc } from "@/lib/api/client";
 import {
   customerCopy,
   isFinalStatus,
@@ -113,7 +113,10 @@ export function OrderStatus({ token }) {
           alerted.current = true;
         }
         setOrder(next);
-        setIconUrl((current) => current || next?.icon_url || readOrderIcon(token, next?.restaurant_name));
+        setIconUrl(
+          (current) =>
+            current || restaurantIconSrc(next?.icon_url) || readOrderIcon(token, next?.restaurant_name),
+        );
         setError("");
         if (isFinalStatus(next?.status)) {
           finished = true;

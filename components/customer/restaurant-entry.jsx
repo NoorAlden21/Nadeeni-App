@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { PoweredBy } from "@/components/brand/powered-by";
 import { ActionButton } from "@/components/cashier/action-button";
-import { apiFetch } from "@/lib/api/client";
+import { apiFetch, restaurantIconSrc } from "@/lib/api/client";
 import {
   customerCopy,
   orderNumberProblem,
@@ -38,9 +38,10 @@ export function RestaurantEntry({ slug }) {
     apiFetch(`/public/restaurants/${encodeURIComponent(slug)}`)
       .then((restaurant) => {
         if (stopped) return;
+        const icon = restaurantIconSrc(restaurant?.icon_url);
         setName(restaurant?.name || "");
-        setIconUrl(restaurant?.icon_url || "");
-        rememberRestaurantIcon(restaurant?.name, restaurant?.icon_url);
+        setIconUrl(icon);
+        rememberRestaurantIcon(restaurant?.name, icon);
       })
       .catch((requestError) => {
         if (stopped) return;

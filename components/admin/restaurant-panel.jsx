@@ -4,6 +4,7 @@ import { useState } from "react";
 import { ActionButton } from "@/components/cashier/action-button";
 import { Field, SelectInput, TextInput } from "@/components/admin/fields";
 import { formatStamp, slugPattern, wholeNumber } from "@/lib/admin/format";
+import { restaurantIconSrc } from "@/lib/api/client";
 
 const qrLabel = {
   shared: "رمز مشترك",
@@ -220,7 +221,7 @@ export function RestaurantPanel({
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="flex min-w-0 items-start gap-3">
                       {restaurant.icon_url ? (
-                        <img src={restaurant.icon_url} alt="" className="h-12 w-12 shrink-0 rounded-2xl object-cover ring-1 ring-burgundy/10" />
+                        <img src={restaurantIconSrc(restaurant.icon_url)} alt="" className="h-12 w-12 shrink-0 rounded-2xl object-cover ring-1 ring-burgundy/10" />
                       ) : null}
                       <div className="min-w-0">
                       <p className="font-display text-xl font-semibold text-burgundy-deep">
@@ -367,7 +368,7 @@ export function RestaurantPanel({
               className="block w-full cursor-pointer text-sm text-ink file:me-3 file:cursor-pointer file:rounded-2xl file:border-0 file:bg-foam file:px-4 file:py-2 file:font-semibold file:text-burgundy-deep"
             />
             {editing?.icon_url ? (
-              <img src={editing.icon_url} alt="" className="mt-3 h-16 w-16 rounded-2xl object-cover ring-1 ring-burgundy/10" />
+              <img src={restaurantIconSrc(editing.icon_url)} alt="" className="mt-3 h-16 w-16 rounded-2xl object-cover ring-1 ring-burgundy/10" />
             ) : null}
           </Field>
           <label className="flex cursor-pointer items-center gap-2 text-sm font-semibold text-burgundy-deep">
