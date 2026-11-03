@@ -1,3 +1,33 @@
+self.addEventListener("install", (event) => {
+  event.waitUntil(self.skipWaiting());
+});
+
+self.addEventListener("activate", (event) => {
+  event.waitUntil(self.clients.claim());
+});
+
+function statusUrl(payloadUrl) {
+  const scope = new URL(self.registration.scope);
+  if (!payloadUrl) {
+    return new URL("/", scope).href;
+  }
+
+  let target;
+  try {
+    target = new URL(payloadUrl, scope);
+  } catch {
+    return new URL("/", scope).href;
+  }
+
+  const localHost = target.hostname === "localhost" || target.hostname === "127.0.0.1";
+  const workerIsLocal = scope.hostname === "localhost" || scope.hostname === "127.0.0.1";
+  if (localHost && !workerIsLocal) {
+    return new URL(`${target.pathname}${target.search}${target.hash}`, scope.origin).href;
+  }
+
+  return target.href;
+}
+
 self.addEventListener("push", (event) => {
   let payload = {};
   try {
@@ -7,11 +37,16 @@ self.addEventListener("push", (event) => {
   }
 
   const title = payload.restaurant_name || "ناديني";
+  const scope = self.registration.scope;
   const options = {
     body: payload.message || "",
     lang: "ar",
     dir: "rtl",
-    data: { url: payload.url || "/" },
+    icon: new URL("/push-icon.png", scope).href,
+    badge: new URL("/push-badge.png", scope).href,
+    tag: payload.order_number ? `nadeeni-${payload.order_number}` : "nadeeni-ready",
+    renotify: true,
+    data: { url: statusUrl(payload.url) },
   };
 
   event.waitUntil(self.registration.showNotification(title, options));
@@ -19,14 +54,19 @@ self.addEventListener("push", (event) => {
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const url = event.notification.data && event.notification.data.url;
-  if (!url) {
-    return;
-  }
+  const url = statusUrl(event.notification.data && event.notification.data.url);
+  const target = new URL(url);
 
   event.waitUntil(
     clients.matchAll({ type: "window", includeUncontrolled: true }).then((windowClients) => {
-      const existing = windowClients.find((client) => client.url === url);
+      const existing = windowClients.find((client) => {
+        try {
+          const open = new URL(client.url);
+          return open.origin === target.origin && open.pathname === target.pathname;
+        } catch {
+          return false;
+        }
+      });
       if (existing && "focus" in existing) {
         return existing.focus();
       }
