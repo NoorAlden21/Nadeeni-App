@@ -26,7 +26,7 @@ export function RestaurantEntry({ slug }) {
   const [error, setError] = useState("");
   const [errorTick, setErrorTick] = useState(0);
   const [busy, setBusy] = useState(false);
-  const [menu, setMenu] = useState([]);
+  const [menu, setMenu] = useState({ banners: [], categories: [] });
   const [menuLoaded, setMenuLoaded] = useState(false);
   const [browsing, setBrowsing] = useState(false);
   const [savedOrder, setSavedOrder] = useState("");
@@ -35,7 +35,7 @@ export function RestaurantEntry({ slug }) {
     let stopped = false;
 
     setBrowsing(false);
-    setMenu([]);
+    setMenu({ banners: [], categories: [] });
     setMenuLoaded(false);
 
     if (typeof window !== "undefined") {
@@ -48,7 +48,7 @@ export function RestaurantEntry({ slug }) {
         if (!stopped) setMenu(readPublicMenu(payload));
       })
       .catch(() => {
-        if (!stopped) setMenu([]);
+        if (!stopped) setMenu({ banners: [], categories: [] });
       })
       .finally(() => {
         if (!stopped) setMenuLoaded(true);
@@ -162,7 +162,8 @@ export function RestaurantEntry({ slug }) {
         <PublicMenu
           name={name}
           iconUrl={iconUrl}
-          categories={menu}
+          banners={menu.banners}
+          categories={menu.categories}
           loading={!menuLoaded}
           onBack={() => setBrowsing(false)}
         />

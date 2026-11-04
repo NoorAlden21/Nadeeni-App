@@ -92,6 +92,52 @@ function BarsIcon() {
   );
 }
 
+function BannerPhoto({ src }) {
+  const asset = useAsset(src);
+  if (!asset.visible) {
+    return <div className="aspect-[16/9] w-full bg-burgundy-deep sm:aspect-[2.2/1]" />;
+  }
+
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src={asset.resolved} alt="" onError={asset.fail} className="aspect-[16/9] w-full object-cover sm:aspect-[2.2/1]" />
+  );
+}
+
+function BannerHero({ banners }) {
+  const [index, setIndex] = useState(0);
+  const signature = banners.map((banner) => banner.imageUrl).join("|");
+  const current = banners[index] || banners[0];
+
+  useEffect(() => {
+    setIndex(0);
+  }, [signature]);
+
+  if (!current) {
+    return null;
+  }
+
+  return (
+    <div className="relative mt-4 -mx-4 overflow-hidden sm:-mx-8 lg:-mx-12">
+      <BannerPhoto key={current.imageUrl} src={current.imageUrl} />
+      {banners.length > 1 ? (
+        <div className="absolute inset-x-0 bottom-3 z-20 flex justify-center gap-1.5">
+          {banners.map((banner, slideIndex) => (
+            <button
+              key={`${banner.imageUrl}-${slideIndex}`}
+              type="button"
+              aria-label={`${slideIndex + 1}`}
+              aria-current={slideIndex === index ? "true" : undefined}
+              onClick={() => setIndex(slideIndex)}
+              className={`size-2 cursor-pointer rounded-full ${slideIndex === index ? "bg-white" : "bg-white/50"}`}
+            />
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function CloseIcon() {
   return (
     <svg viewBox="0 0 24 24" className="size-4" fill="none" aria-hidden="true" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
@@ -467,7 +513,7 @@ function CategoryStrip({ categories, active, onChoose }) {
   );
 }
 
-export function PublicMenu({ name, iconUrl, categories, loading = false, onBack }) {
+export function PublicMenu({ name, iconUrl, banners = [], categories, loading = false, onBack }) {
   const reduceMotion = useReducedMotion();
   const [active, setActive] = useState(allCategories);
   const [board, setBoard] = useState("main");
@@ -540,6 +586,10 @@ export function PublicMenu({ name, iconUrl, categories, loading = false, onBack 
         ) : null}
         {name ? <h1 className="min-w-0 truncate text-sm font-semibold text-ink sm:text-base md:text-lg">{name}</h1> : null}
       </div>
+
+      {banners.length > 0 ? (
+        <BannerHero banners={banners} />
+      ) : null}
 
       {!loading && categories.length > 0 ? (
         <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">

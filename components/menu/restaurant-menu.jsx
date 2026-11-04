@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ConfirmDialog } from "@/components/admin/confirm-dialog";
 import { ActionButton } from "@/components/cashier/action-button";
 import { apiFetch } from "@/lib/api/client";
-import { formatPrice, itemCountLabel, menuErrorText, nextSortOrder, sortOrdersForMove } from "@/lib/menu/menu";
+import { formatPrice, imageFileError, itemCountLabel, menuErrorText, nextSortOrder, sortOrdersForMove } from "@/lib/menu/menu";
 import { MenuFormDialog } from "@/components/menu/menu-form-dialog";
 
 function Glyph({ children, className = "" }) {
@@ -355,6 +355,8 @@ function ItemsDialog({ category, busy, onClose, onCreate, onEdit, onToggle, onMo
 
 export function RestaurantMenu({ token, onUnauthenticated, onInactive }) {
   const [categories, setCategories] = useState([]);
+  const [banners, setBanners] = useState([]);
+  const [bannerFileKey, setBannerFileKey] = useState(0);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -386,8 +388,12 @@ export function RestaurantMenu({ token, onUnauthenticated, onInactive }) {
   }, []);
 
   const refresh = useCallback(async () => {
-    const next = await apiFetch("/restaurant/menu", { token });
-    setCategories(Array.isArray(next) ? next : []);
+    const [nextMenu, nextBanners] = await Promise.all([
+      apiFetch("/restaurant/menu", { token }),
+      apiFetch("/restaurant/banners", { token }),
+    ]);
+    setCategories(Array.isArray(nextMenu) ? nextMenu : []);
+    setBanners(Array.isArray(nextBanners) ? nextBanners : []);
     setError("");
   }, [token]);
 
@@ -396,11 +402,15 @@ export function RestaurantMenu({ token, onUnauthenticated, onInactive }) {
 
     async function load() {
       try {
-        const next = await apiFetch("/restaurant/menu", { token });
+        const [nextMenu, nextBanners] = await Promise.all([
+          apiFetch("/restaurant/menu", { token }),
+          apiFetch("/restaurant/banners", { token }),
+        ]);
         if (stopped) {
           return;
         }
-        setCategories(Array.isArray(next) ? next : []);
+        setCategories(Array.isArray(nextMenu) ? nextMenu : []);
+        setBanners(Array.isArray(nextBanners) ? nextBanners : []);
         setError("");
       } catch (requestError) {
         if (!stopped) {
@@ -535,6 +545,126 @@ export function RestaurantMenu({ token, onUnauthenticated, onInactive }) {
     setBusy(false);
   }
 
+  async function addBanner(event) {
+    const file = event.target.files?.[0] || null;
+    setBannerFileKey((value) => value + 1);
+    if (!file || busy) {
+      return;
+    }
+    const message = imageFileError(file, "photo");
+    if (message) {
+      setNotice("");
+      setError(message);
+      return;
+    }
+    if (banners.length >= 5) {
+      setNotice("");
+      setError("يمكن حفظ 5 لافتات. احذفوا واحدة قبل إضافة غيرها.");
+      return;
+    }
+
+    const body = new FormData();
+    body.append("image", file);
+    body.append("sort_order", String(nextSortOrder(banners)));
+    body.append("is_active", "1");
+    setBusy(true);
+    setError("");
+    try {
+      await apiFetch("/restaurant/banners", { token, method: "POST", body });
+      setNotice("تمت إضافة اللافتة.");
+      await refresh();
+    } catch (requestError) {
+      handleFailure(requestError);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function replaceBanner(banner, event) {
+    const file = event.target.files?.[0] || null;
+    setBannerFileKey((value) => value + 1);
+    if (!file || busy) {
+      return;
+    }
+    const message = imageFileError(file, "photo");
+    if (message) {
+      setNotice("");
+      setError(message);
+      return;
+    }
+
+    const body = new FormData();
+    body.append("image", file);
+    setBusy(true);
+    setError("");
+    try {
+      await apiFetch(`/restaurant/banners/${banner.id}`, { token, method: "PATCH", body });
+      setNotice("تم استبدال صورة اللافتة.");
+      await refresh();
+    } catch (requestError) {
+      handleFailure(requestError);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function patchBanner(banner, body) {
+    if (busy) {
+      return;
+    }
+    setBusy(true);
+    setError("");
+    try {
+      await apiFetch(`/restaurant/banners/${banner.id}`, { token, method: "PATCH", body });
+      await refresh();
+    } catch (requestError) {
+      handleFailure(requestError);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function moveBanner(index, direction) {
+    const nextIndex = direction === "up" ? index - 1 : index + 1;
+    const moving = banners[index];
+    const staying = banners[nextIndex];
+    if (!moving || !staying || busy) {
+      return;
+    }
+
+    const orders = sortOrdersForMove(moving, staying, direction);
+    setBusy(true);
+    setError("");
+    let failure = null;
+    try {
+      await apiFetch(`/restaurant/banners/${moving.id}`, {
+        token,
+        method: "PATCH",
+        body: { sort_order: orders.moving },
+      });
+      if (orders.staying !== Number(staying.sort_order)) {
+        await apiFetch(`/restaurant/banners/${staying.id}`, {
+          token,
+          method: "PATCH",
+          body: { sort_order: orders.staying },
+        });
+      }
+    } catch (requestError) {
+      failure = requestError;
+    }
+
+    try {
+      await refresh();
+    } catch (requestError) {
+      failure = failure || requestError;
+    }
+
+    if (failure) {
+      handleFailure(failure);
+    }
+    setBusy(false);
+  }
+
   function requestDelete(kind, record) {
     if (kind === "category" && record.items?.length) {
       setNotice("");
@@ -549,11 +679,14 @@ export function RestaurantMenu({ token, onUnauthenticated, onInactive }) {
       return;
     }
 
-    const path = pendingDelete.kind === "category" ? "categories" : "items";
+    const path =
+      pendingDelete.kind === "banner"
+        ? `/restaurant/banners/${pendingDelete.record.id}`
+        : `/restaurant/menu/${pendingDelete.kind === "category" ? "categories" : "items"}/${pendingDelete.record.id}`;
     setBusy(true);
     setError("");
     try {
-      await apiFetch(`/restaurant/menu/${path}/${pendingDelete.record.id}`, {
+      await apiFetch(path, {
         token,
         method: "DELETE",
       });
@@ -592,6 +725,81 @@ export function RestaurantMenu({ token, onUnauthenticated, onInactive }) {
           {error}
         </p>
       ) : null}
+
+      <div className="overflow-hidden rounded-2xl bg-white shadow-[0_8px_30px_-18px_rgba(74,4,24,0.45)] ring-1 ring-burgundy/10">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-burgundy/10 px-4 py-3">
+          <div>
+            <h3 className="text-sm font-bold text-burgundy-deep">اللافتات</h3>
+            <p className="text-xs text-ink/45">حتى 5 صور في أعلى قائمة الزبون. إخفاء اللافتة يبقيها ضمن العدد.</p>
+          </div>
+          <label
+            className={`inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-burgundy px-4 text-sm font-semibold text-ivory ${
+              busy || !loaded || banners.length >= 5 ? "pointer-events-none opacity-40" : "cursor-pointer"
+            }`}
+          >
+            <input
+              key={bannerFileKey}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              onChange={addBanner}
+              className="sr-only"
+            />
+            <PlusIcon />
+            إضافة لافتة
+          </label>
+        </div>
+        {!loaded ? (
+          <p className="px-4 py-8 text-sm font-medium text-ink/50">يتم تحميل اللافتات.</p>
+        ) : banners.length === 0 ? (
+          <p className="px-4 py-8 text-sm text-ink/50">لا لافتات بعد. الصورة JPEG أو PNG أو WebP، حتى 1 ميغابايت.</p>
+        ) : (
+          <ul>
+            {banners.map((banner, index) => (
+              <li
+                key={banner.id}
+                className={`flex flex-wrap items-center justify-between gap-3 border-b border-burgundy/5 px-4 py-3 last:border-0 ${
+                  banner.is_active ? "" : "opacity-70"
+                }`}
+              >
+                <div className="flex min-w-0 items-center gap-3">
+                  {/* The address is an absolute API file. A missing image is 404. */}
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={banner.image_url}
+                    alt=""
+                    className="h-16 w-28 shrink-0 rounded-xl object-cover ring-1 ring-burgundy/10"
+                  />
+                  <Pill on={banner.is_active} onLabel="ظاهرة" offLabel="مخفية" />
+                </div>
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                  <label className={`inline-flex h-9 items-center rounded-xl px-3 text-sm font-semibold text-burgundy ${busy ? "pointer-events-none opacity-40" : "cursor-pointer"}`}>
+                    <input
+                      key={`${bannerFileKey}-${banner.id}`}
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      onChange={(event) => replaceBanner(banner, event)}
+                      className="sr-only"
+                    />
+                    استبدال
+                  </label>
+                  <RowButton icon={banner.is_active ? <BanIcon /> : <CheckIcon />} disabled={busy} onClick={() => patchBanner(banner, { is_active: !banner.is_active })}>
+                    {banner.is_active ? "إخفاء" : "إظهار"}
+                  </RowButton>
+                  <RowButton icon={<ChevronUpIcon />} disabled={busy || index === 0} onClick={() => moveBanner(index, "up")}>
+                    تقديم
+                  </RowButton>
+                  <RowButton icon={<ChevronDownIcon />} disabled={busy || index === banners.length - 1} onClick={() => moveBanner(index, "down")}>
+                    تأخير
+                  </RowButton>
+                  <RowButton icon={<TrashIcon />} tone="danger" disabled={busy} onClick={() => requestDelete("banner", banner)}>
+                    حذف
+                  </RowButton>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
 
       <div className="overflow-hidden rounded-2xl bg-white shadow-[0_8px_30px_-18px_rgba(74,4,24,0.45)] ring-1 ring-burgundy/10">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-burgundy/10 px-4 py-3">
@@ -727,12 +935,16 @@ export function RestaurantMenu({ token, onUnauthenticated, onInactive }) {
       />
       <ConfirmDialog
         open={Boolean(pendingDelete)}
-        title={pendingDelete?.kind === "category" ? "حذف التصنيف" : "حذف الصنف"}
+        title={
+          pendingDelete?.kind === "category" ? "حذف التصنيف" : pendingDelete?.kind === "banner" ? "حذف اللافتة" : "حذف الصنف"
+        }
         titleId="menu-delete-title"
         body={
-          pendingDelete?.kind === "category"
-            ? `هل تريدون حذف «${deleteName}»؟ التصنيف الذي ما زال فيه أصناف لا يُحذف.`
-            : `هل تريدون حذف «${deleteName}» من القائمة؟`
+          pendingDelete?.kind === "banner"
+            ? "هل تريدون حذف هذه اللافتة؟"
+            : pendingDelete?.kind === "category"
+              ? `هل تريدون حذف «${deleteName}»؟ التصنيف الذي ما زال فيه أصناف لا يُحذف.`
+              : `هل تريدون حذف «${deleteName}» من القائمة؟`
         }
         confirmLabel="حذف"
         pending={busy}
