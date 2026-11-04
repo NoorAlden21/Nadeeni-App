@@ -5,6 +5,8 @@ import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { menuAssetSrc } from "@/lib/api/client";
 import { customerCopy } from "@/lib/customer/public";
 import { formatPrice } from "@/lib/menu/menu";
+import { Article, Tag } from "@phosphor-icons/react";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 const allCategories = -1;
 
@@ -21,19 +23,25 @@ function useAsset(src) {
   };
 }
 
-function RoundPhoto({ src, label, className }) {
+function RoundPhoto({ src, label, className, fit = "cover" }) {
   const asset = useAsset(src);
   if (asset.visible) {
     return (
       // The address is an absolute API file. A missing image is 404.
       // eslint-disable-next-line @next/next/no-img-element
-      <img src={asset.resolved} alt="" loading="lazy" onError={asset.fail} className={`object-cover ${className}`} />
+      <img
+        src={asset.resolved}
+        alt=""
+        loading="lazy"
+        onError={asset.fail}
+        className={`${fit === "contain" ? "object-contain" : "object-cover"} ${className}`}
+      />
     );
   }
 
   const mark = [...String(label || "•")][0] || "•";
   return (
-    <span aria-hidden="true" className={`grid place-items-center bg-[#f3e6c8] font-display font-semibold text-burgundy ${className}`}>
+    <span aria-hidden="true" className={`grid place-items-center bg-[#f3e6c8] font-detail font-semibold text-burgundy ${className}`}>
       {mark}
     </span>
   );
@@ -146,18 +154,6 @@ function CloseIcon() {
   );
 }
 
-function PriceTag({ amount }) {
-  if (!amount) return null;
-  return (
-    <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-[#f7f1e4] px-2.5 py-1 ring-1 ring-gold/50">
-      <span dir="ltr" translate="no" className="font-sans text-sm font-bold text-burgundy-deep">
-        {amount}
-      </span>
-      <span className="text-[11px] font-bold text-gold-deep">ل.س</span>
-    </span>
-  );
-}
-
 function foldText(value) {
   return String(value || "")
     .trim()
@@ -226,63 +222,103 @@ function menuCards(visible, active) {
   };
 }
 
-function ItemDialog({ item, onClose }) {
-  const dialogRef = useRef(null);
+function ItemDialog({ item, related, restaurantName, iconUrl, onOpen, onClose }) {
   const reduceMotion = useReducedMotion();
+  const bodyRef = useRef(null);
   const price = item.price === null ? "" : formatPrice(item.price);
+  const description = item.description.ar && item.description.ar.trim() !== item.name.ar.trim() ? item.description.ar : "";
 
   useEffect(() => {
-    const dialog = dialogRef.current;
-    if (!dialog) return;
-    if (!dialog.open) dialog.showModal();
-    return () => {
-      if (!dialog.open) return;
-      dialog.addEventListener("close", (event) => event.stopImmediatePropagation(), { capture: true, once: true });
-      dialog.close();
-    };
-  }, []);
+    bodyRef.current?.parentElement?.scrollTo(0, 0);
+  }, [item.key]);
 
   return (
-    <dialog
-      ref={dialogRef}
-      aria-labelledby="menu-item-title"
-      className="mb-0 mt-auto w-full max-w-lg rounded-t-[1.6rem] border-0 bg-transparent p-0 text-ink backdrop:bg-burgundy-deep/50 sm:m-auto sm:rounded-[1.6rem]"
-      onClose={onClose}
-      onClick={(event) => {
-        if (event.target === dialogRef.current) onClose();
-      }}
-    >
-      <motion.div
-        initial={reduceMotion ? false : { opacity: 0, y: 18 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: reduceMotion ? 0 : 0.24, ease: "easeOut" }}
-        className="max-h-[92dvh] overflow-y-auto rounded-t-[1.6rem] bg-paper shadow-[0_30px_60px_-28px_rgba(74,4,24,0.55)] sm:rounded-[1.6rem]"
-      >
-        <div className="relative">
-          <RoundPhoto src={item.photoUrl} label={item.name.ar} className="aspect-[4/3] w-full text-5xl sm:aspect-[16/10]" />
-          <ItemBadge badge={item.badge} />
+    <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
+      <DialogContent page hideClose closeLabel={customerCopy.menuClose} className="gap-0 bg-white p-0 font-detail">
+        <header className="sticky top-0 z-10 flex items-center gap-2 border-b border-black/5 bg-white px-2 py-2">
           <button
             type="button"
             onClick={onClose}
             aria-label={customerCopy.menuClose}
-            className="absolute top-3 end-3 inline-flex size-10 cursor-pointer items-center justify-center rounded-2xl bg-ivory/95 text-burgundy shadow-sm ring-1 ring-burgundy/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
+            className="inline-flex size-10 shrink-0 cursor-pointer items-center justify-center rounded-full text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
           >
-            <CloseIcon />
+            <BackIcon />
           </button>
-        </div>
-        <div className="flex flex-col gap-3 px-5 py-5">
-          <p className="text-xs font-bold text-gold-deep">{item.categoryName}</p>
-          <div className="flex items-start justify-between gap-3">
-            <h2 id="menu-item-title" className="font-display text-3xl leading-10 font-bold text-burgundy-deep">
-              {item.name.ar}
-            </h2>
-            <PriceTag amount={price} />
+          <div className="flex min-w-0 items-center gap-2">
+            {iconUrl ? <img src={iconUrl} alt="" className="size-8 shrink-0 rounded-full object-cover" /> : null}
+            {restaurantName ? <p className="truncate text-sm font-semibold text-ink">{restaurantName}</p> : null}
           </div>
-          {item.description.ar ? <p className="text-base leading-8 text-ink/70">{item.description.ar}</p> : null}
-          <p className="text-xs leading-5 text-ink/45">{customerCopy.menuPrices}</p>
-        </div>
-      </motion.div>
-    </dialog>
+        </header>
+        <motion.div
+          ref={bodyRef}
+          key={item.key}
+          initial={reduceMotion ? false : { opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: reduceMotion ? 0 : 0.2 }}
+        >
+          <div className="relative bg-[#f3f1ec]">
+            <RoundPhoto src={item.photoUrl} label={item.name.ar} className="aspect-[4/3] w-full text-5xl" />
+            <ItemBadge badge={item.badge} />
+          </div>
+          <div className="relative -mt-6 rounded-t-3xl bg-white px-5 pt-6 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
+            <DialogHeader className="items-stretch gap-3 text-start">
+              <DialogTitle className="text-start font-detail text-[1.85rem] leading-10 font-bold text-burgundy-deep">
+                {item.name.ar}
+              </DialogTitle>
+              <span aria-hidden="true" className="block h-1 w-12 rounded-full bg-gold" />
+              <DialogDescription className={description ? "flex items-start gap-1.5 text-start text-sm leading-7 text-ink/55" : "sr-only"}>
+                {description ? <Article size={16} weight="regular" className="mt-0.5 shrink-0 text-gold" aria-hidden="true" /> : null}
+                <span className="min-w-0 whitespace-pre-line">{description || item.name.ar}</span>
+              </DialogDescription>
+            </DialogHeader>
+            <div className="mt-6">
+              <p className="flex items-center gap-1.5 text-sm font-medium text-ink/50">
+                <Tag size={16} weight="regular" className="shrink-0 text-gold" aria-hidden="true" />
+                {customerCopy.menuPriceLabel}
+              </p>
+              {price ? (
+                <p className="mt-2 inline-flex items-baseline gap-1.5 rounded-2xl border border-gold bg-white px-3.5 py-1.5">
+                  <span dir="ltr" translate="no" className="font-detail text-3xl font-bold text-burgundy">
+                    {price}
+                  </span>
+                  <span className="text-base font-semibold text-burgundy/60">ل.س</span>
+                </p>
+              ) : null}
+            </div>
+            {related.length > 0 ? (
+              <div className="mt-8 border-t border-black/10 pt-6">
+                <h3 className="text-base font-bold text-ink">{customerCopy.menuSuggested}</h3>
+                <ul className="mt-3 -mx-5 flex gap-3 overflow-x-auto px-5 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                  {related.map((other) => {
+                    const otherPrice = other.price === null ? "" : formatPrice(other.price);
+                    return (
+                      <li key={other.key} className="w-36 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => onOpen(other)}
+                          className="w-full cursor-pointer rounded-2xl border border-burgundy/15 bg-white p-1.5 text-start focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
+                        >
+                          <RoundPhoto src={other.photoUrl} label={other.name.ar} className="aspect-square w-full rounded-2xl text-2xl" />
+                          <span className="mt-2 line-clamp-2 block text-sm font-semibold text-ink">{other.name.ar}</span>
+                          {otherPrice ? (
+                            <span className="mt-1 flex items-baseline gap-1">
+                              <span dir="ltr" translate="no" className="font-detail text-sm font-bold text-burgundy">
+                                {otherPrice}
+                              </span>
+                              <span className="text-[11px] font-semibold text-ink/45">ل.س</span>
+                            </span>
+                          ) : null}
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            ) : null}
+          </div>
+        </motion.div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -324,7 +360,7 @@ function MenuBoardSheet({ board, onChoose, onClose }) {
         className="rounded-t-[1.6rem] bg-paper px-5 pt-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-[0_30px_60px_-28px_rgba(74,4,24,0.55)]"
       >
         <div className="flex items-center justify-between gap-3">
-          <h2 id="menu-board-title" className="font-display text-2xl font-bold text-ink">
+          <h2 id="menu-board-title" className="font-detail text-2xl font-bold text-ink">
             {customerCopy.menuPick}
           </h2>
           <button
@@ -422,7 +458,7 @@ function CategoryFilterSheet({ categories, active, onChoose, onClose }) {
                       <span
                         dir="ltr"
                         translate="no"
-                        className={`font-sans text-xs ${selected ? "font-semibold text-ink/55" : "text-ink/40"}`}
+                        className={`font-detail text-xs ${selected ? "font-semibold text-ink/55" : "text-ink/40"}`}
                       >
                         {item.items.length}
                       </span>
@@ -571,7 +607,7 @@ export function PublicMenu({ name, iconUrl, banners = [], categories, loading = 
           : customerCopy.menuNoMatch;
 
   return (
-    <div className="flex w-full flex-col [overflow-anchor:none]">
+    <div className="flex w-full flex-col font-detail [overflow-anchor:none]">
       <div className="flex min-w-0 items-center gap-3">
         <button
           type="button"
@@ -592,7 +628,8 @@ export function PublicMenu({ name, iconUrl, banners = [], categories, loading = 
       ) : null}
 
       {!loading && categories.length > 0 ? (
-        <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
+        <div className="sticky top-0 z-30 -mx-4 mt-4 bg-ivory/95 px-4 py-3 backdrop-blur-md sm:-mx-8 sm:px-8 lg:-mx-12 lg:px-12">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
           <div className="flex w-full items-center gap-2 sm:order-2 sm:w-1/3 sm:min-w-0">
             <div className="relative min-w-0 flex-1">
               <SearchIcon />
@@ -643,16 +680,17 @@ export function PublicMenu({ name, iconUrl, banners = [], categories, loading = 
             ) : null}
           </div>
         </div>
+        </div>
       ) : null}
 
       {loading ? (
         <p className="mt-16 text-center text-base font-semibold text-burgundy-deep">{customerCopy.menuLoading}</p>
       ) : view.cards.length > 0 ? (
-        <section ref={sheetRef} aria-label={heading} className="mt-4 scroll-mt-4 sm:mt-6">
-          <div className="mb-3 flex justify-end sm:hidden">
+        <section ref={sheetRef} aria-label={heading} className="mt-4 scroll-mt-36 sm:mt-6">
+          <div className="mb-3.5 flex items-center justify-between gap-3">
+            <h2 className="min-w-0 truncate font-detail text-[1.35rem] leading-8 font-bold text-ink">{heading}</h2>
             <LayoutSwitch layout={layout} onChange={setLayout} />
           </div>
-          <h2 className="mb-3.5 min-w-0 truncate font-display text-[1.35rem] leading-8 font-bold text-ink">{heading}</h2>
           <AnimatePresence mode="wait" initial={false}>
             <motion.ul
               key={`${board}-${layout}-${view.allSelected ? "all" : active}`}
@@ -682,7 +720,7 @@ export function PublicMenu({ name, iconUrl, banners = [], categories, loading = 
                         </span>
                         <span className="flex min-w-0 flex-1 flex-col justify-between gap-2 py-0.5">
                           <span className="min-w-0">
-                            <span className="line-clamp-2 font-display text-base leading-tight font-bold text-ink">{item.name.ar}</span>
+                            <span className="line-clamp-2 font-detail text-base leading-tight font-bold text-ink">{item.name.ar}</span>
                             {item.description.ar ? (
                               <span className="mt-1 line-clamp-3 block text-sm leading-snug whitespace-pre-line text-ink/50">
                                 {item.description.ar}
@@ -691,7 +729,7 @@ export function PublicMenu({ name, iconUrl, banners = [], categories, loading = 
                           </span>
                           {price ? (
                             <span className="flex items-baseline gap-1">
-                              <span dir="ltr" translate="no" className="font-sans text-base font-bold text-burgundy">
+                              <span dir="ltr" translate="no" className="font-detail text-base font-bold text-burgundy">
                                 {price}
                               </span>
                               <span className="text-xs font-semibold text-ink/45">ل.س</span>
@@ -710,10 +748,10 @@ export function PublicMenu({ name, iconUrl, banners = [], categories, loading = 
                         <ItemBadge badge={item.badge} />
                       </span>
                       <span className="flex flex-1 flex-col items-center px-1.5 pt-3 pb-1.5 text-center">
-                        <span className="line-clamp-2 w-full text-center font-display text-[15px] leading-6 font-semibold text-ink">{item.name.ar}</span>
+                        <span className="line-clamp-2 w-full text-center font-detail text-[15px] leading-6 font-semibold text-ink">{item.name.ar}</span>
                         {price ? (
                           <span className="mt-3 flex w-full items-baseline justify-center gap-1.5 border-t border-black/[0.06] pt-2">
-                            <span dir="ltr" translate="no" className="font-sans text-sm font-bold text-burgundy">
+                            <span dir="ltr" translate="no" className="font-detail text-sm font-bold text-burgundy">
                               {price}
                             </span>
                             <span className="text-[11px] font-semibold text-ink/45">ل.س</span>
@@ -730,7 +768,7 @@ export function PublicMenu({ name, iconUrl, banners = [], categories, loading = 
       ) : (
         <section className="mt-6">
           {categories.length > 0 ? (
-            <h2 className="mb-3.5 min-w-0 truncate font-display text-[1.35rem] leading-8 font-bold text-ink">{title}</h2>
+            <h2 className="mb-3.5 min-w-0 truncate font-detail text-[1.35rem] leading-8 font-bold text-ink">{title}</h2>
           ) : null}
           <p className="rounded-[1.35rem] bg-white px-4 py-10 text-center text-base font-semibold text-burgundy-deep shadow-[0_14px_32px_-20px_rgba(42,16,22,0.28)] ring-1 ring-black/[0.04]">
             {emptyMessage}
@@ -747,7 +785,16 @@ export function PublicMenu({ name, iconUrl, banners = [], categories, loading = 
           onClose={() => setFiltersOpen(false)}
         />
       ) : null}
-      {detail ? <ItemDialog item={detail} onClose={() => setDetail(null)} /> : null}
+      {detail ? (
+        <ItemDialog
+          item={detail}
+          related={view.cards.filter((card) => card.key !== detail.key).slice(0, 8)}
+          restaurantName={name}
+          iconUrl={iconUrl}
+          onOpen={setDetail}
+          onClose={() => setDetail(null)}
+        />
+      ) : null}
     </div>
   );
 }

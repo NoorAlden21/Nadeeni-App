@@ -1,4 +1,4 @@
-import { El_Messiri, IBM_Plex_Sans_Arabic } from "next/font/google";
+import { Cairo, El_Messiri, IBM_Plex_Sans_Arabic } from "next/font/google";
 import "./globals.css";
 
 const messiri = El_Messiri({
@@ -13,6 +13,12 @@ const plex = IBM_Plex_Sans_Arabic({
   variable: "--font-plex",
 });
 
+const cairo = Cairo({
+  subsets: ["arabic", "latin"],
+  weight: ["400", "600", "700"],
+  variable: "--font-cairo",
+});
+
 export const metadata = {
   title: {
     default: "ناديني",
@@ -23,7 +29,7 @@ export const metadata = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="ar" dir="rtl" className={`${messiri.variable} ${plex.variable}`}>
+    <html lang="ar" dir="rtl" className={`${messiri.variable} ${plex.variable} ${cairo.variable}`}>
       <body className="bg-ivory font-sans text-ink antialiased">{children}</body>
     </html>
   );

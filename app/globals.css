@@ -3,6 +3,7 @@
 @theme inline {
   --font-sans: var(--font-plex), "IBM Plex Sans Arabic", sans-serif;
   --font-display: var(--font-messiri), "El Messiri", serif;
+  --font-detail: var(--font-cairo), "Cairo", sans-serif;
   --color-ivory: #fdfaf1;
   --color-paper: #fffdf8;
   --color-ink: #2a1016;
@@ -11,6 +12,16 @@
   --color-gold: #cda649;
   --color-gold-deep: #8c6e2c;
   --color-foam: #f8e8ed;
+  --color-background: #fdfaf1;
+  --color-foreground: #2a1016;
+  --color-primary: #7e062a;
+  --color-primary-foreground: #fdfaf1;
+  --color-secondary: #f7f1e4;
+  --color-secondary-foreground: #8c6e2c;
+  --color-muted: #f7f1e4;
+  --color-muted-foreground: #8c6e2c;
+  --color-border: #eadfca;
+  --color-ring: #cda649;
   --animate-shake: nadeeni-shake 0.48s ease-in-out;
 
   @keyframes nadeeni-shake {
