@@ -296,12 +296,12 @@ function ItemDialog({ item, related, restaurantName, iconUrl, onOpen, onClose })
                         <button
                           type="button"
                           onClick={() => onOpen(other)}
-                          className="w-full cursor-pointer rounded-2xl border border-burgundy/15 bg-white p-1.5 text-start focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
+                          className="flex w-full cursor-pointer flex-col items-center rounded-2xl border border-burgundy/15 bg-white p-1.5 text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
                         >
                           <RoundPhoto src={other.photoUrl} label={other.name.ar} className="aspect-square w-full rounded-2xl text-2xl" />
-                          <span className="mt-2 line-clamp-2 block text-sm font-semibold text-ink">{other.name.ar}</span>
+                          <span className="mt-2 line-clamp-2 w-full px-1 text-center text-sm font-semibold text-ink">{other.name.ar}</span>
                           {otherPrice ? (
-                            <span className="mt-1 flex items-baseline gap-1">
+                            <span className="mt-2 flex w-full items-baseline justify-center gap-1 border-t border-black/10 pt-1.5">
                               <span dir="ltr" translate="no" className="font-detail text-sm font-bold text-burgundy">
                                 {otherPrice}
                               </span>
