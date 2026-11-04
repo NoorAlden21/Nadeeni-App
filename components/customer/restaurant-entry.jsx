@@ -203,11 +203,9 @@ export function RestaurantEntry({ slug }) {
 
           {/* تسلسل النظام (Progress Stepper) بدلاً من الفاتورة */}
           <div className="mb-8 w-full max-w-[18rem] sm:max-w-xs lg:mb-12">
-            <div className="relative flex justify-between">
-              {/* خط الخلفية */}
-              <div className="absolute top-5 right-6 left-6 h-[2px] bg-burgundy/10 z-0" />
-              {/* خط التقدم (الذهبي) */}
-              <div className="absolute top-5 right-6 w-1/2 h-[2px] bg-gold z-0" />
+            <div className="relative grid grid-cols-3">
+              <div className="absolute top-5 right-[calc(100%/6)] left-[calc(100%/6)] z-0 h-[2px] bg-burgundy/10" />
+              <div className="absolute top-5 right-[calc(100%/6)] z-0 h-[2px] w-[calc(100%/3)] bg-gold" />
 
               {/* الخطوة الأولى: مسح الرمز (تمت) */}
               <div className="relative z-10 flex flex-col items-center gap-2 opacity-60">

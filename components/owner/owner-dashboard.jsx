@@ -255,7 +255,12 @@ export function OwnerDashboard({ token, user, onUnauthenticated, onInactive }) {
 
         {stats ? <OwnerCharts stats={stats} from={stats.from || from} to={stats.to || to} /> : null}
         {reviews ? (
-          <OwnerReviews reviews={reviews} timeZone={stats?.timezone || timeZone} />
+          <OwnerReviews
+            reviews={reviews}
+            timeZone={stats?.timezone || timeZone}
+            from={reviews.from || stats?.from || from}
+            to={reviews.to || stats?.to || to}
+          />
         ) : null}
           </>
         )}
