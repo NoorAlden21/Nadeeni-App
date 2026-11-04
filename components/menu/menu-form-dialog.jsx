@@ -182,6 +182,17 @@ function MenuFormBody({ draft, categories, pending, onSave, onClose }) {
                     onChange={(event) => update("price", event.target.value)}
                   />
                 </Field>
+                <Field id="menu-badge" label="الشارة">
+                  <SelectInput
+                    id="menu-badge"
+                    value={form.badge || ""}
+                    onChange={(event) => update("badge", event.target.value)}
+                  >
+                    <option value="">بدون</option>
+                    <option value="new">جديد</option>
+                    <option value="offer">عرض</option>
+                  </SelectInput>
+                </Field>
               </>
             ) : null}
             <Field id="menu-sort" label="ترتيب العرض">

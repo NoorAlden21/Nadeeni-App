@@ -177,6 +177,7 @@ function blankItem(categoryId, sort) {
     price: "",
     sort_order: String(sort),
     is_available: true,
+    badge: "",
   };
 }
 
@@ -199,6 +200,7 @@ function itemForm(item) {
     price: String(item.price ?? ""),
     sort_order: String(item.sort_order ?? 0),
     is_available: Boolean(item.is_available),
+    badge: item.badge === "new" || item.badge === "offer" ? item.badge : "",
   };
 }
 
@@ -279,6 +281,9 @@ function ItemsDialog({ category, busy, onClose, onCreate, onEdit, onToggle, onMo
                           <Thumb src={item.photo_url} label={item.name?.ar} />
                           <div className="min-w-0">
                             <p className="truncate font-semibold text-burgundy-deep">{item.name?.ar}</p>
+                            {item.badge === "new" || item.badge === "offer" ? (
+                              <p className="text-xs font-semibold text-gold-deep">{item.badge === "new" ? "جديد" : "عرض"}</p>
+                            ) : null}
                             {item.name?.en ? (
                               <p dir="ltr" className="truncate text-end text-xs text-ink/45">
                                 {item.name.en}
