@@ -1,14 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { menuAssetSrc } from "@/lib/api/client";
 import { customerCopy } from "@/lib/customer/public";
+import { categoryIndexAtMarker } from "@/lib/customer/public-menu";
 import { formatPrice } from "@/lib/menu/menu";
-import { Article, Tag } from "@phosphor-icons/react";
+import { Article, Funnel, Tag } from "@phosphor-icons/react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-
-const allCategories = -1;
 
 function useAsset(src) {
   const [failedSrc, setFailedSrc] = useState("");
@@ -60,15 +59,6 @@ function SearchIcon() {
     <svg viewBox="0 0 24 24" className="pointer-events-none absolute top-1/2 start-4 size-[1.15rem] -translate-y-1/2 text-ink/35" fill="none" aria-hidden="true" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
       <circle cx="11" cy="11" r="6.5" />
       <path d="m16 16 4 4" />
-    </svg>
-  );
-}
-
-function FilterIcon() {
-  return (
-    <svg viewBox="0 0 24 24" className="size-5" aria-hidden="true" fill="currentColor">
-      <path d="M3.2 4.4h9.4L9.2 8.8 8.2 9.7v6.1l-2.4-1.4V9.7L3.2 4.4z" />
-      <path d="M14.2 5h6.6v1.7h-6.6zM13.4 11h7.4v1.7h-7.4zM13.4 17h7.4v1.7h-7.4z" />
     </svg>
   );
 }
@@ -206,20 +196,15 @@ function visibleCategories(categories, query) {
   });
 }
 
-function menuCards(visible, active) {
-  const category = visible.find((item) => item.sourceIndex === active) || null;
-  const groups = category ? [category] : visible;
-  return {
-    allSelected: !category,
-    title: category ? category.name.ar : customerCopy.menuAll,
-    cards: groups.flatMap((group) =>
-      group.items.map((item, itemIndex) => ({
-        ...item,
-        categoryName: group.name.ar,
-        key: `${group.sourceIndex}-${item.name.ar}-${itemIndex}`,
-      })),
-    ),
-  };
+function menuCards(groups) {
+  return groups.flatMap((group) =>
+    group.items.map((item, itemIndex) => ({
+      ...item,
+      categoryName: group.name.ar,
+      sourceIndex: group.sourceIndex,
+      key: `${group.sourceIndex}-${item.name.ar}-${itemIndex}`,
+    })),
+  );
 }
 
 function ItemDialog({ item, related, restaurantName, iconUrl, onOpen, onClose }) {
@@ -510,48 +495,94 @@ function pillClass(selected) {
   }`;
 }
 
-function CategoryStrip({ categories, active, onChoose }) {
-  const listed = categories.some((item) => item.sourceIndex === active);
-
+function CategoryStrip({ categories, active, onChoose, stripRef }) {
   return (
-    <div
-      role="tablist"
+    <nav
+      ref={stripRef}
       aria-label={customerCopy.menuHeading}
       className="flex min-w-0 gap-2 overflow-x-auto scroll-smooth py-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
     >
-      <button
-        type="button"
-        role="tab"
-        aria-selected={!listed}
-        data-category-index={allCategories}
-        onClick={(event) => onChoose(allCategories, event.currentTarget)}
-        className={pillClass(!listed)}
-      >
-        {customerCopy.menuAll}
-      </button>
       {categories.map((item) => {
         const isSelected = item.sourceIndex === active;
         return (
           <button
             key={`${item.name.ar}-${item.sourceIndex}`}
             type="button"
-            role="tab"
             data-category-index={item.sourceIndex}
-            aria-selected={isSelected}
-            onClick={(event) => onChoose(item.sourceIndex, event.currentTarget)}
+            aria-current={isSelected ? "true" : undefined}
+            onClick={() => onChoose(item.sourceIndex)}
             className={pillClass(isSelected)}
           >
             {item.name.ar}
           </button>
         );
       })}
-    </div>
+    </nav>
+  );
+}
+
+function MenuItemCard({ item, layout, onOpen }) {
+  const price = item.price === null ? "" : formatPrice(item.price);
+  return (
+    <li>
+      {layout === "list" ? (
+        <button
+          type="button"
+          onClick={() => onOpen(item)}
+          className="flex w-full cursor-pointer flex-row items-stretch gap-3 rounded-2xl bg-white px-3 py-3 text-start shadow-[0_10px_30px_rgba(42,16,22,0.08)] ring-1 ring-black/[0.04] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold active:scale-[0.99] sm:hidden"
+        >
+          <span className="relative size-32 shrink-0 overflow-hidden rounded-2xl">
+            <RoundPhoto src={item.photoUrl} label={item.name.ar} className="size-full text-3xl" />
+            <ItemBadge badge={item.badge} />
+          </span>
+          <span className="flex min-w-0 flex-1 flex-col justify-between gap-2 py-0.5">
+            <span className="min-w-0">
+              <span className="line-clamp-2 font-detail text-base leading-tight font-bold text-ink">{item.name.ar}</span>
+              {item.description.ar ? (
+                <span className="mt-1 line-clamp-3 block text-sm leading-snug whitespace-pre-line text-ink/50">
+                  {item.description.ar}
+                </span>
+              ) : null}
+            </span>
+            {price ? (
+              <span className="flex items-baseline gap-1">
+                <span dir="ltr" translate="no" className="font-detail text-base font-bold text-burgundy">
+                  {price}
+                </span>
+                <span className="text-xs font-semibold text-ink/45">ل.س</span>
+              </span>
+            ) : null}
+          </span>
+        </button>
+      ) : null}
+      <button
+        type="button"
+        onClick={() => onOpen(item)}
+        className={`${layout === "list" ? "hidden sm:flex" : "flex"} h-full w-full cursor-pointer flex-col rounded-[1.35rem] bg-white p-2 text-start shadow-[0_14px_32px_-20px_rgba(42,16,22,0.4)] ring-1 ring-black/[0.04] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold active:scale-[0.99]`}
+      >
+        <span className="relative block overflow-hidden rounded-[1.05rem]">
+          <RoundPhoto src={item.photoUrl} label={item.name.ar} className="aspect-[5/4] w-full text-3xl" />
+          <ItemBadge badge={item.badge} />
+        </span>
+        <span className="flex flex-1 flex-col items-center px-1.5 pt-3 pb-1.5 text-center">
+          <span className="line-clamp-2 w-full text-center font-detail text-[15px] leading-6 font-semibold text-ink">{item.name.ar}</span>
+          {price ? (
+            <span className="mt-3 flex w-full items-baseline justify-center gap-1.5 border-t border-black/[0.06] pt-2">
+              <span dir="ltr" translate="no" className="font-detail text-sm font-bold text-burgundy">
+                {price}
+              </span>
+              <span className="text-[11px] font-semibold text-ink/45">ل.س</span>
+            </span>
+          ) : null}
+        </span>
+      </button>
+    </li>
   );
 }
 
 export function PublicMenu({ name, iconUrl, banners = [], categories, loading = false, onBack }) {
   const reduceMotion = useReducedMotion();
-  const [active, setActive] = useState(allCategories);
+  const [active, setActive] = useState(0);
   const [board, setBoard] = useState("main");
   const [pickerOpen, setPickerOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -560,40 +591,137 @@ export function PublicMenu({ name, iconUrl, banners = [], categories, loading = 
   const [detail, setDetail] = useState(null);
   const boarded = categoriesForBoard(categories, board);
   const visible = visibleCategories(boarded, query);
-  const view = menuCards(visible, active);
+  const cards = menuCards(visible);
+  const shown = visible.some((item) => item.sourceIndex === active) ? active : (visible[0]?.sourceIndex ?? active);
+  const menuRef = useRef(null);
+  const barRef = useRef(null);
+  const stripRef = useRef(null);
   const sheetRef = useRef(null);
-  const opened = useRef(false);
+  const pauseSpy = useRef(false);
+  const pauseToken = useRef(0);
+  const readSpy = useRef(() => {});
   const title = boardTitle(board);
-  const heading = view.allSelected ? title : view.title;
+  const sectionKey = visible.map((item) => `${item.sourceIndex}:${item.items.length}`).join("|");
+  const itemGridClass =
+    layout === "list"
+      ? "flex flex-col gap-3 sm:grid sm:grid-cols-3 sm:gap-3 lg:grid-cols-4"
+      : "grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4";
 
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
 
   useEffect(() => {
-    if (!opened.current) {
-      opened.current = true;
-      return;
+    const bar = barRef.current;
+    const root = menuRef.current;
+    if (!bar || !root) return undefined;
+    const apply = () => {
+      root.style.setProperty("--menu-sticky", `${bar.offsetHeight}px`);
+    };
+    apply();
+    const observer = new ResizeObserver(apply);
+    observer.observe(bar);
+    return () => observer.disconnect();
+  }, [sectionKey, loading]);
+
+  useEffect(() => {
+    const root = sheetRef.current;
+    if (!root || visible.length === 0) return undefined;
+
+    let frame = 0;
+    function read() {
+      if (pauseSpy.current) return;
+      const marker = (barRef.current?.getBoundingClientRect().bottom ?? 0) + 24;
+      const sections = [...root.querySelectorAll("[data-menu-section]")].map((node) => {
+        const rect = node.getBoundingClientRect();
+        return { index: Number(node.dataset.menuSection), top: rect.top, bottom: rect.bottom };
+      });
+      const atEnd = window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 2;
+      const next = categoryIndexAtMarker(sections, { marker, viewportHeight: window.innerHeight, atEnd });
+      if (next === null || Number.isNaN(next)) return;
+      setActive((current) => (current === next ? current : next));
     }
-    sheetRef.current?.scrollIntoView({ block: "start" });
-  }, [active]);
+
+    readSpy.current = read;
+
+    function onScroll() {
+      window.cancelAnimationFrame(frame);
+      frame = window.requestAnimationFrame(read);
+    }
+
+    frame = window.requestAnimationFrame(read);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+    };
+  }, [sectionKey, visible.length]);
+
+  useEffect(() => {
+    const strip = stripRef.current;
+    if (!strip) return undefined;
+    const chip = strip.querySelector(`[data-category-index="${shown}"]`);
+    if (!chip) return undefined;
+    const frame = window.requestAnimationFrame(() => {
+      const stripBox = strip.getBoundingClientRect();
+      const chipBox = chip.getBoundingClientRect();
+      const fullyVisible = chipBox.left >= stripBox.left + 8 && chipBox.right <= stripBox.right - 8;
+      if (fullyVisible) return;
+      const delta = chipBox.left + chipBox.width / 2 - (stripBox.left + stripBox.width / 2);
+      strip.scrollBy({ left: delta, behavior: reduceMotion ? "auto" : "smooth" });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [shown, sectionKey, reduceMotion]);
 
   function leave() {
     window.scrollTo(0, 0);
     onBack();
   }
 
-  function chooseCategory(itemIndex, button) {
+  function revealCategory(itemIndex) {
+    const section = sheetRef.current?.querySelector(`[data-menu-section="${itemIndex}"]`);
+    if (!section) {
+      pauseSpy.current = false;
+      return;
+    }
+    const token = pauseToken.current + 1;
+    pauseToken.current = token;
+    pauseSpy.current = true;
+    section.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "start" });
+    const follow = () => stop(true);
+    function stop(sync) {
+      window.removeEventListener("scrollend", stop);
+      window.removeEventListener("wheel", follow);
+      window.removeEventListener("touchmove", follow);
+      if (pauseToken.current !== token) return;
+      pauseSpy.current = false;
+      if (sync) readSpy.current();
+    }
+    window.addEventListener("scrollend", stop);
+    window.addEventListener("wheel", follow, { passive: true });
+    window.addEventListener("touchmove", follow, { passive: true });
+    window.setTimeout(stop, reduceMotion ? 80 : 900);
+  }
+
+  function chooseCategory(itemIndex) {
     setActive(itemIndex);
     setFiltersOpen(false);
-    const target = button || document.querySelector(`[data-category-index="${itemIndex}"]`);
-    target?.scrollIntoView({ inline: "center", block: "nearest" });
+    pauseSpy.current = true;
+    window.setTimeout(() => revealCategory(itemIndex), 40);
   }
 
   function chooseBoard(next) {
+    const nextVisible = visibleCategories(categoriesForBoard(categories, next), query);
     setBoard(next);
-    setActive(allCategories);
+    setActive(nextVisible[0]?.sourceIndex ?? 0);
     setPickerOpen(false);
+    pauseSpy.current = true;
+    window.scrollTo(0, 0);
+    window.setTimeout(() => {
+      pauseSpy.current = false;
+    }, 80);
   }
 
   const showStrip = visible.length > 0;
@@ -607,164 +735,114 @@ export function PublicMenu({ name, iconUrl, banners = [], categories, loading = 
           : customerCopy.menuNoMatch;
 
   return (
-    <div className="flex w-full flex-col font-detail [overflow-anchor:none]">
-      <div className="flex min-w-0 items-center gap-3">
-        <button
-          type="button"
-          onClick={leave}
-          aria-label={customerCopy.backToNumber}
-          className="inline-flex size-10 shrink-0 cursor-pointer items-center justify-center rounded-full text-ink/70 transition hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
-        >
-          <BackIcon />
-        </button>
-        {iconUrl ? (
-          <img src={iconUrl} alt="" className="size-10 shrink-0 rounded-full bg-[#f3e6c8] object-cover ring-1 ring-black/5 sm:size-12 md:size-14" />
+    <div ref={menuRef} className="flex w-full flex-col font-detail [overflow-anchor:none]">
+      <div ref={barRef} className="sticky top-0 z-30 -mx-4 bg-ivory/95 px-4 backdrop-blur-md sm:-mx-8 sm:px-8 lg:-mx-12 lg:px-12">
+        <div className="flex min-w-0 items-center gap-3 py-3">
+          <button
+            type="button"
+            onClick={leave}
+            aria-label={customerCopy.backToNumber}
+            className="inline-flex size-10 shrink-0 cursor-pointer items-center justify-center rounded-full text-ink/70 transition hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
+          >
+            <BackIcon />
+          </button>
+          {iconUrl ? (
+            <img src={iconUrl} alt="" className="size-10 shrink-0 rounded-full bg-[#f3e6c8] object-cover ring-1 ring-black/5 sm:size-12 md:size-14" />
+          ) : null}
+          {name ? <h1 className="min-w-0 truncate text-sm font-semibold text-ink sm:text-base md:text-lg">{name}</h1> : null}
+        </div>
+
+        {!loading && categories.length > 0 ? (
+          <div className="flex flex-col gap-3 pb-3 sm:flex-row sm:items-center sm:gap-4">
+            <div className="flex w-full items-center gap-2 sm:order-2 sm:w-1/3 sm:min-w-0">
+              <div className="relative min-w-0 flex-1">
+                <SearchIcon />
+                <input
+                  type="search"
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  placeholder={customerCopy.menuSearch}
+                  aria-label={customerCopy.menuSearch}
+                  enterKeyHint="search"
+                  autoComplete="off"
+                  className="h-11 w-full rounded-full border border-black/10 bg-white ps-11 pe-4 text-sm text-ink outline-none placeholder:text-ink/35 focus:ring-2 focus:ring-gold"
+                />
+              </div>
+              <button
+                type="button"
+                aria-label={customerCopy.menuCategories}
+                aria-expanded={filtersOpen}
+                title={customerCopy.menuCategories}
+                disabled={!showStrip}
+                onClick={() => {
+                  setPickerOpen(false);
+                  setFiltersOpen(true);
+                }}
+                className="inline-flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-full border border-black/10 bg-white text-burgundy shadow-[0_8px_18px_-12px_rgba(74,4,24,0.85)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold disabled:cursor-default disabled:opacity-40"
+              >
+                <Funnel size={20} weight="regular" />
+              </button>
+            </div>
+            <div className="flex min-w-0 items-center sm:order-1 sm:w-2/3">
+              <button
+                type="button"
+                aria-label={customerCopy.menuPick}
+                aria-expanded={pickerOpen}
+                title={customerCopy.menuPick}
+                onClick={() => {
+                  setFiltersOpen(false);
+                  setPickerOpen(true);
+                }}
+                className="me-2 inline-flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-full border border-black/10 bg-white text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
+              >
+                <BarsIcon />
+              </button>
+              {showStrip ? (
+                <div className="min-w-0 flex-1">
+                  <CategoryStrip categories={visible} active={shown} onChoose={chooseCategory} stripRef={stripRef} />
+                </div>
+              ) : null}
+            </div>
+          </div>
         ) : null}
-        {name ? <h1 className="min-w-0 truncate text-sm font-semibold text-ink sm:text-base md:text-lg">{name}</h1> : null}
       </div>
 
       {banners.length > 0 ? (
         <BannerHero banners={banners} />
       ) : null}
 
-      {!loading && categories.length > 0 ? (
-        <div className="sticky top-0 z-30 -mx-4 mt-4 bg-ivory/95 px-4 py-3 backdrop-blur-md sm:-mx-8 sm:px-8 lg:-mx-12 lg:px-12">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
-          <div className="flex w-full items-center gap-2 sm:order-2 sm:w-1/3 sm:min-w-0">
-            <div className="relative min-w-0 flex-1">
-              <SearchIcon />
-              <input
-                type="search"
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder={customerCopy.menuSearch}
-                aria-label={customerCopy.menuSearch}
-                enterKeyHint="search"
-                autoComplete="off"
-                className="h-11 w-full rounded-full border border-black/10 bg-white ps-11 pe-4 text-sm text-ink outline-none placeholder:text-ink/35 focus:ring-2 focus:ring-gold"
-              />
-            </div>
-            <button
-              type="button"
-              aria-label={customerCopy.menuCategories}
-              aria-expanded={filtersOpen}
-              title={customerCopy.menuCategories}
-              disabled={!showStrip}
-              onClick={() => {
-                setPickerOpen(false);
-                setFiltersOpen(true);
-              }}
-              className="inline-flex size-10 shrink-0 cursor-pointer items-center justify-center rounded-full border border-black/10 bg-burgundy text-ivory focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold disabled:cursor-default disabled:opacity-40"
-            >
-              <FilterIcon />
-            </button>
-          </div>
-          <div className="flex min-w-0 items-center sm:order-1 sm:w-2/3">
-            <button
-              type="button"
-              aria-label={customerCopy.menuPick}
-              aria-expanded={pickerOpen}
-              title={customerCopy.menuPick}
-              onClick={() => {
-                setFiltersOpen(false);
-                setPickerOpen(true);
-              }}
-              className="me-2 inline-flex size-10 shrink-0 cursor-pointer items-center justify-center rounded-full border border-black/10 bg-white text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
-            >
-              <BarsIcon />
-            </button>
-            {showStrip ? (
-              <div className="min-w-0 flex-1">
-                <CategoryStrip categories={visible} active={active} onChoose={chooseCategory} />
-              </div>
-            ) : null}
-          </div>
-        </div>
-        </div>
-      ) : null}
-
       {loading ? (
         <p className="mt-16 text-center text-base font-semibold text-burgundy-deep">{customerCopy.menuLoading}</p>
-      ) : view.cards.length > 0 ? (
-        <section ref={sheetRef} aria-label={heading} className="mt-4 scroll-mt-36 sm:mt-6">
-          <div className="mb-3.5 flex items-center justify-between gap-3">
-            <h2 className="min-w-0 truncate font-detail text-[1.35rem] leading-8 font-bold text-ink">{heading}</h2>
-            <LayoutSwitch layout={layout} onChange={setLayout} />
+      ) : cards.length > 0 ? (
+        <div ref={sheetRef} className="mt-4 sm:mt-6">
+          {board !== "main" ? (
+            <h2 className="mb-4 font-detail text-[1.35rem] leading-8 font-bold text-ink">{title}</h2>
+          ) : null}
+          <div className="flex flex-col gap-8">
+            {visible.map((group, groupIndex) => (
+              <section
+                key={`${board}-${group.sourceIndex}`}
+                data-menu-section={group.sourceIndex}
+                aria-labelledby={`menu-category-${group.sourceIndex}`}
+                className="scroll-mt-[calc(var(--menu-sticky,9rem)+0.75rem)]"
+              >
+                <div className="mb-3.5 flex items-center justify-between gap-3">
+                  <h2 id={`menu-category-${group.sourceIndex}`} className="min-w-0 truncate font-detail text-[1.35rem] leading-8 font-bold text-ink">
+                    {group.name.ar}
+                  </h2>
+                  {groupIndex === 0 ? <LayoutSwitch layout={layout} onChange={setLayout} /> : null}
+                </div>
+                <ul className={itemGridClass}>
+                  {cards
+                    .filter((item) => item.sourceIndex === group.sourceIndex)
+                    .map((item) => (
+                      <MenuItemCard key={item.key} item={item} layout={layout} onOpen={setDetail} />
+                    ))}
+                </ul>
+              </section>
+            ))}
           </div>
-          <AnimatePresence mode="wait" initial={false}>
-            <motion.ul
-              key={`${board}-${layout}-${view.allSelected ? "all" : active}`}
-              initial={reduceMotion ? false : { opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={reduceMotion ? undefined : { opacity: 0, y: -6 }}
-              transition={{ duration: reduceMotion ? 0 : 0.2, ease: "easeOut" }}
-              className={
-                layout === "list"
-                  ? "flex flex-col gap-3 sm:grid sm:grid-cols-3 sm:gap-3 lg:grid-cols-4"
-                  : "grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4"
-              }
-            >
-              {view.cards.map((item) => {
-                const price = item.price === null ? "" : formatPrice(item.price);
-                return (
-                  <li key={item.key}>
-                    {layout === "list" ? (
-                      <button
-                        type="button"
-                        onClick={() => setDetail(item)}
-                        className="flex w-full cursor-pointer flex-row items-stretch gap-3 rounded-2xl bg-white px-3 py-3 text-start shadow-[0_10px_30px_rgba(42,16,22,0.08)] ring-1 ring-black/[0.04] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold active:scale-[0.99] sm:hidden"
-                      >
-                        <span className="relative size-32 shrink-0 overflow-hidden rounded-2xl">
-                          <RoundPhoto src={item.photoUrl} label={item.name.ar} className="size-full text-3xl" />
-                          <ItemBadge badge={item.badge} />
-                        </span>
-                        <span className="flex min-w-0 flex-1 flex-col justify-between gap-2 py-0.5">
-                          <span className="min-w-0">
-                            <span className="line-clamp-2 font-detail text-base leading-tight font-bold text-ink">{item.name.ar}</span>
-                            {item.description.ar ? (
-                              <span className="mt-1 line-clamp-3 block text-sm leading-snug whitespace-pre-line text-ink/50">
-                                {item.description.ar}
-                              </span>
-                            ) : null}
-                          </span>
-                          {price ? (
-                            <span className="flex items-baseline gap-1">
-                              <span dir="ltr" translate="no" className="font-detail text-base font-bold text-burgundy">
-                                {price}
-                              </span>
-                              <span className="text-xs font-semibold text-ink/45">ل.س</span>
-                            </span>
-                          ) : null}
-                        </span>
-                      </button>
-                    ) : null}
-                    <button
-                      type="button"
-                      onClick={() => setDetail(item)}
-                      className={`${layout === "list" ? "hidden sm:flex" : "flex"} h-full w-full cursor-pointer flex-col rounded-[1.35rem] bg-white p-2 text-start shadow-[0_14px_32px_-20px_rgba(42,16,22,0.4)] ring-1 ring-black/[0.04] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold active:scale-[0.99]`}
-                    >
-                      <span className="relative block overflow-hidden rounded-[1.05rem]">
-                        <RoundPhoto src={item.photoUrl} label={item.name.ar} className="aspect-[5/4] w-full text-3xl" />
-                        <ItemBadge badge={item.badge} />
-                      </span>
-                      <span className="flex flex-1 flex-col items-center px-1.5 pt-3 pb-1.5 text-center">
-                        <span className="line-clamp-2 w-full text-center font-detail text-[15px] leading-6 font-semibold text-ink">{item.name.ar}</span>
-                        {price ? (
-                          <span className="mt-3 flex w-full items-baseline justify-center gap-1.5 border-t border-black/[0.06] pt-2">
-                            <span dir="ltr" translate="no" className="font-detail text-sm font-bold text-burgundy">
-                              {price}
-                            </span>
-                            <span className="text-[11px] font-semibold text-ink/45">ل.س</span>
-                          </span>
-                        ) : null}
-                      </span>
-                    </button>
-                  </li>
-                );
-              })}
-            </motion.ul>
-          </AnimatePresence>
-        </section>
+        </div>
       ) : (
         <section className="mt-6">
           {categories.length > 0 ? (
@@ -780,7 +858,7 @@ export function PublicMenu({ name, iconUrl, banners = [], categories, loading = 
       {filtersOpen ? (
         <CategoryFilterSheet
           categories={visible}
-          active={active}
+          active={shown}
           onChoose={chooseCategory}
           onClose={() => setFiltersOpen(false)}
         />
@@ -788,7 +866,7 @@ export function PublicMenu({ name, iconUrl, banners = [], categories, loading = 
       {detail ? (
         <ItemDialog
           item={detail}
-          related={view.cards.filter((card) => card.key !== detail.key).slice(0, 8)}
+          related={cards.filter((card) => card.key !== detail.key && card.sourceIndex === detail.sourceIndex).slice(0, 8)}
           restaurantName={name}
           iconUrl={iconUrl}
           onOpen={setDetail}
