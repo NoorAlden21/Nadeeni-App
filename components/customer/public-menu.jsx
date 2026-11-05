@@ -676,6 +676,7 @@ export function PublicMenu({ name, iconUrl, banners = [], categories, loading = 
   }, [shown, sectionKey, reduceMotion]);
 
   function leave() {
+    if (!onBack) return;
     window.scrollTo(0, 0);
     onBack();
   }
@@ -738,14 +739,16 @@ export function PublicMenu({ name, iconUrl, banners = [], categories, loading = 
     <div ref={menuRef} className="flex w-full flex-col font-detail [overflow-anchor:none]">
       <div ref={barRef} className="sticky top-0 z-30 -mx-4 bg-ivory/95 px-4 backdrop-blur-md sm:-mx-8 sm:px-8 lg:-mx-12 lg:px-12">
         <div className="flex min-w-0 items-center gap-3 py-3">
-          <button
-            type="button"
-            onClick={leave}
-            aria-label={customerCopy.backToNumber}
-            className="inline-flex size-10 shrink-0 cursor-pointer items-center justify-center rounded-full text-ink/70 transition hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
-          >
-            <BackIcon />
-          </button>
+          {onBack ? (
+            <button
+              type="button"
+              onClick={leave}
+              aria-label={customerCopy.backToNumber}
+              className="inline-flex size-10 shrink-0 cursor-pointer items-center justify-center rounded-full text-ink/70 transition hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
+            >
+              <BackIcon />
+            </button>
+          ) : null}
           {iconUrl ? (
             <img src={iconUrl} alt="" className="size-10 shrink-0 rounded-full bg-[#f3e6c8] object-cover ring-1 ring-black/5 sm:size-12 md:size-14" />
           ) : null}

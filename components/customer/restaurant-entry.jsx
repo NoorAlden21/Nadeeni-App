@@ -7,6 +7,7 @@ import { ActionButton } from "@/components/cashier/action-button";
 import { PublicMenu } from "@/components/customer/public-menu";
 import { apiFetch, restaurantIconSrc } from "@/lib/api/client";
 import { readPublicMenu } from "@/lib/customer/public-menu";
+import { readFeatures } from "@/lib/features";
 import {
   customerCopy,
   orderNumberProblem,
@@ -28,6 +29,8 @@ export function RestaurantEntry({ slug }) {
   const [busy, setBusy] = useState(false);
   const [menu, setMenu] = useState({ banners: [], categories: [] });
   const [menuLoaded, setMenuLoaded] = useState(false);
+  const [menuProblem, setMenuProblem] = useState("");
+  const [features, setFeatures] = useState({ pager: false, menu: false, ordering: false, kitchen: false });
   const [browsing, setBrowsing] = useState(false);
   const [savedOrder, setSavedOrder] = useState("");
 
@@ -37,30 +40,46 @@ export function RestaurantEntry({ slug }) {
     setBrowsing(false);
     setMenu({ banners: [], categories: [] });
     setMenuLoaded(false);
+    setMenuProblem("");
+    setFeatures({ pager: false, menu: false, ordering: false, kitchen: false });
 
     if (typeof window !== "undefined") {
       const last = localStorage.getItem(`nadeeni_last_order_${slug}`);
       if (last) setSavedOrder(last);
     }
 
-    apiFetch(`/public/restaurants/${encodeURIComponent(slug)}/menu`)
-      .then((payload) => {
-        if (!stopped) setMenu(readPublicMenu(payload));
-      })
-      .catch(() => {
-        if (!stopped) setMenu({ banners: [], categories: [] });
-      })
-      .finally(() => {
-        if (!stopped) setMenuLoaded(true);
-      });
-
     apiFetch(`/public/restaurants/${encodeURIComponent(slug)}`)
-      .then((restaurant) => {
+      .then(async (restaurant) => {
         if (stopped) return;
         const icon = restaurantIconSrc(restaurant?.icon_url);
         setName(restaurant?.name || "");
         setIconUrl(icon);
         rememberRestaurantIcon(restaurant?.name, icon);
+
+        const flags = readFeatures(restaurant);
+        if (!flags.menu) {
+          setFeatures(flags);
+          setMenuLoaded(true);
+          return;
+        }
+
+        try {
+          const payload = await apiFetch(`/public/restaurants/${encodeURIComponent(slug)}/menu`);
+          if (stopped) return;
+          setMenu(readPublicMenu(payload));
+          setFeatures(flags);
+        } catch (menuError) {
+          if (stopped) return;
+          if (menuError.status === 404) {
+            setFeatures({ ...flags, menu: false });
+            setMenu({ banners: [], categories: [] });
+          } else {
+            setFeatures(flags);
+            setMenuProblem(publicErrorText(menuError, customerCopy.restaurantMissing));
+          }
+        } finally {
+          if (!stopped) setMenuLoaded(true);
+        }
       })
       .catch((requestError) => {
         if (stopped) return;
@@ -101,7 +120,7 @@ export function RestaurantEntry({ slug }) {
 
   async function handleSubmit(event, overrideNumber = null) {
     if (event) event.preventDefault();
-    if (busy) return;
+    if (busy || !features.pager) return;
 
     const targetNumber = overrideNumber || number;
     const problem = orderNumberProblem(targetNumber);
@@ -156,17 +175,66 @@ export function RestaurantEntry({ slug }) {
     );
   }
 
-  if (browsing) {
+  if (features.menu && !features.pager) {
     return (
       <Screen align="start">
-        <PublicMenu
-          name={name}
-          iconUrl={iconUrl}
-          banners={menu.banners}
-          categories={menu.categories}
-          loading={!menuLoaded}
-          onBack={() => setBrowsing(false)}
-        />
+        {menuProblem ? (
+          <p role="alert" className="text-center text-base font-medium text-burgundy-deep">
+            {menuProblem}
+          </p>
+        ) : (
+          <PublicMenu
+            name={name}
+            iconUrl={iconUrl}
+            banners={menu.banners}
+            categories={menu.categories}
+            loading={!menuLoaded}
+          />
+        )}
+      </Screen>
+    );
+  }
+
+  if (!features.pager) {
+    return (
+      <Screen>
+        <div className="flex flex-col items-center text-center">
+          <p className="text-xl font-extrabold text-gold-deep sm:text-2xl">أهلاً بك في مطعم</p>
+          {name ? (
+            <div className="mt-3 flex items-center gap-3">
+              {iconUrl ? (
+                <img src={iconUrl} alt="" className="h-12 w-12 shrink-0 rounded-2xl object-cover ring-1 ring-burgundy/10 sm:h-14 sm:w-14" />
+              ) : null}
+              <h1 className="max-w-full font-display text-4xl font-bold wrap-break-word text-burgundy-deep sm:text-5xl">
+                {name}
+              </h1>
+            </div>
+          ) : null}
+        </div>
+      </Screen>
+    );
+  }
+
+  if (browsing && features.menu) {
+    return (
+      <Screen align="start">
+        {menuProblem ? (
+          <div className="flex flex-col items-center gap-4 text-center">
+            <p role="alert" className="text-base font-medium text-burgundy-deep">{menuProblem}</p>
+            <ActionButton variant="quiet" onClick={() => setBrowsing(false)}>
+              {customerCopy.backToNumber}
+            </ActionButton>
+          </div>
+        ) : (
+          <PublicMenu
+            name={name}
+            iconUrl={iconUrl}
+            banners={menu.banners}
+            categories={menu.categories}
+            loading={!menuLoaded}
+            onBack={() => setBrowsing(false)}
+          />
+        )}
       </Screen>
     );
   }
@@ -281,17 +349,24 @@ export function RestaurantEntry({ slug }) {
             </ActionButton>
           </form>
 
-          <ActionButton
-            variant="quiet"
-            className="w-full"
-            onClick={() => {
-              setError("");
-              window.scrollTo(0, 0);
-              setBrowsing(true);
-            }}
-          >
-            {customerCopy.browseMenu}
-          </ActionButton>
+          {features.menu && !menuProblem ? (
+            <ActionButton
+              variant="quiet"
+              className="w-full"
+              onClick={() => {
+                setError("");
+                window.scrollTo(0, 0);
+                setBrowsing(true);
+              }}
+            >
+              {customerCopy.browseMenu}
+            </ActionButton>
+          ) : null}
+          {menuProblem ? (
+            <p role="alert" className="text-center text-sm font-medium text-burgundy">
+              {menuProblem}
+            </p>
+          ) : null}
 
           {savedOrder && !number && !busy && (
             <div className="mt-1 flex flex-col items-center border-t border-burgundy/5 pt-4 relative z-10">

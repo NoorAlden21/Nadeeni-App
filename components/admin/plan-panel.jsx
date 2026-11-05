@@ -4,6 +4,7 @@ import { useState } from "react";
 import { ActionButton } from "@/components/cashier/action-button";
 import { Field, SelectInput, TextInput } from "@/components/admin/fields";
 import { wholeNumber } from "@/lib/admin/format";
+import { featureSummary, readFeatures } from "@/lib/features";
 
 const intervalLabel = {
   month: "شهر",
@@ -11,14 +12,18 @@ const intervalLabel = {
   trial: "تجربة",
 };
 
-export function PlanPanel({ plans, busy, onCreate, onToggle, onDelete }) {
-  const [form, setForm] = useState({
-    name: "",
-    interval: "month",
-    duration_days: "7",
-    price: "0",
-    currency: "USD",
-  });
+const blankPlan = {
+  name: "",
+  interval: "month",
+  duration_days: "7",
+  price: "0",
+  currency: "USD",
+  pager: true,
+  menu: false,
+};
+
+export function PlanPanel({ plans, busy, onCreate, onToggle, onChangeFlags, onDelete }) {
+  const [form, setForm] = useState(blankPlan);
   const [error, setError] = useState("");
 
   function update(key, value) {
@@ -50,6 +55,8 @@ export function PlanPanel({ plans, busy, onCreate, onToggle, onDelete }) {
       interval: form.interval,
       price,
       currency,
+      pager: form.pager,
+      menu: form.menu,
     };
 
     if (form.interval === "trial") {
@@ -63,13 +70,7 @@ export function PlanPanel({ plans, busy, onCreate, onToggle, onDelete }) {
 
     const ok = await onCreate(body, setError);
     if (ok) {
-      setForm({
-        name: "",
-        interval: "month",
-        duration_days: "7",
-        price: "0",
-        currency: "USD",
-      });
+      setForm(blankPlan);
     }
   }
 
@@ -100,6 +101,9 @@ export function PlanPanel({ plans, busy, onCreate, onToggle, onDelete }) {
                     <p dir="ltr" className="mt-1 text-end font-sans text-sm font-semibold text-ink">
                       {plan.price} {plan.currency}
                     </p>
+                    {featureSummary(plan) ? (
+                      <p className="mt-1 text-sm text-ink/60">{featureSummary(plan)}</p>
+                    ) : null}
                   </div>
                   <span
                     className={`rounded-full px-2.5 py-1 text-sm font-semibold ring-1 ${
@@ -114,6 +118,25 @@ export function PlanPanel({ plans, busy, onCreate, onToggle, onDelete }) {
                 <div className="mt-3 flex flex-wrap items-center gap-2">
                   <ActionButton
                     variant="quiet"
+                    onClick={() => onChangeFlags(plan, { pager: !readFeatures(plan).pager })}
+                    disabled={busy}
+                  >
+                    {readFeatures(plan).pager ? "إيقاف المناداة" : "تشغيل المناداة"}
+                  </ActionButton>
+                  <ActionButton
+                    variant="quiet"
+                    onClick={() =>
+                      onChangeFlags(
+                        plan,
+                        readFeatures(plan).menu ? { menu: false, ordering: false } : { menu: true },
+                      )
+                    }
+                    disabled={busy}
+                  >
+                    {readFeatures(plan).menu ? "إيقاف القائمة" : "تشغيل القائمة"}
+                  </ActionButton>
+                  <ActionButton
+                    variant="quiet"
                     onClick={() => onToggle(plan)}
                     disabled={busy}
                   >
@@ -126,7 +149,10 @@ export function PlanPanel({ plans, busy, onCreate, onToggle, onDelete }) {
               </li>
             ))
           )}
-        </ul>
+          </ul>
+        <p className="mt-4 text-sm leading-6 text-ink/55">
+          تغيير المناداة أو القائمة يعدّل كل مطعم على هذه الخطة.
+        </p>
       </section>
 
       <form
@@ -184,6 +210,24 @@ export function PlanPanel({ plans, busy, onCreate, onToggle, onDelete }) {
               onChange={(event) => update("currency", event.target.value)}
             />
           </Field>
+          <label className="flex cursor-pointer items-center gap-2 text-sm font-semibold text-burgundy-deep">
+            <input
+              type="checkbox"
+              checked={form.pager}
+              onChange={(event) => update("pager", event.target.checked)}
+              className="size-4 accent-burgundy"
+            />
+            المناداة
+          </label>
+          <label className="flex cursor-pointer items-center gap-2 text-sm font-semibold text-burgundy-deep">
+            <input
+              type="checkbox"
+              checked={form.menu}
+              onChange={(event) => update("menu", event.target.checked)}
+              className="size-4 accent-burgundy"
+            />
+            القائمة
+          </label>
           <p role="alert" className="min-h-6 text-sm font-medium text-burgundy">
             {error}
           </p>

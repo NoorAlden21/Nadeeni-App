@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ConfirmDialog } from "@/components/admin/confirm-dialog";
 import { ActionButton } from "@/components/cashier/action-button";
 import { apiFetch } from "@/lib/api/client";
+import { isFeatureUnavailable } from "@/lib/features";
 import { formatPrice, imageFileError, itemCountLabel, menuErrorText, nextSortOrder, sortOrdersForMove } from "@/lib/menu/menu";
 import { MenuFormDialog } from "@/components/menu/menu-form-dialog";
 
@@ -353,7 +354,7 @@ function ItemsDialog({ category, busy, onClose, onCreate, onEdit, onToggle, onMo
   );
 }
 
-export function RestaurantMenu({ token, onUnauthenticated, onInactive }) {
+export function RestaurantMenu({ token, onUnauthenticated, onInactive, onFeatureUnavailable }) {
   const [categories, setCategories] = useState([]);
   const [banners, setBanners] = useState([]);
   const [bannerFileKey, setBannerFileKey] = useState(0);
@@ -367,11 +368,13 @@ export function RestaurantMenu({ token, onUnauthenticated, onInactive }) {
   const openId = useRef(0);
   const onUnauthenticatedRef = useRef(onUnauthenticated);
   const onInactiveRef = useRef(onInactive);
+  const onFeatureUnavailableRef = useRef(onFeatureUnavailable);
 
   useEffect(() => {
     onUnauthenticatedRef.current = onUnauthenticated;
     onInactiveRef.current = onInactive;
-  }, [onUnauthenticated, onInactive]);
+    onFeatureUnavailableRef.current = onFeatureUnavailable;
+  }, [onUnauthenticated, onInactive, onFeatureUnavailable]);
 
   const handleFailure = useCallback((requestError) => {
     if (requestError?.status === 401) {
@@ -380,6 +383,10 @@ export function RestaurantMenu({ token, onUnauthenticated, onInactive }) {
     }
     if (requestError?.status === 403 && requestError.body?.message === "inactive") {
       onInactiveRef.current();
+      return true;
+    }
+    if (isFeatureUnavailable(requestError)) {
+      onFeatureUnavailableRef.current?.();
       return true;
     }
     setNotice("");

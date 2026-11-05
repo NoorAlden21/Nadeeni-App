@@ -18,6 +18,7 @@ import {
   orderNumberErrorText,
   staffErrorText,
 } from "@/lib/cashier/orders";
+import { isFeatureUnavailable, readFeatures } from "@/lib/features";
 
 function HeaderButton({ children, onClick }) {
   return (
@@ -45,10 +46,20 @@ export function CashierDashboard({ token, user, onUnauthenticated, onInactive })
   const [uncollecting, setUncollecting] = useState(false);
   const [qr, setQr] = useState(null);
   const [screen, setScreen] = useState("orders");
+  const [pagerOff, setPagerOff] = useState(false);
+  const [menuOff, setMenuOff] = useState(false);
   const onUnauthenticatedRef = useRef(onUnauthenticated);
   const onInactiveRef = useRef(onInactive);
   const busyIds = useRef(new Set());
   const timeZone = user.restaurant?.timezone || "Asia/Damascus";
+  const features = readFeatures(user.restaurant);
+  const pager = features.pager && !pagerOff;
+  const menuOn = features.menu && !menuOff;
+  const screens = [
+    pager ? { id: "orders", label: "الطلبات" } : null,
+    menuOn ? { id: "menu", label: "القائمة" } : null,
+  ].filter(Boolean);
+  const visible = screens.some((item) => item.id === screen) ? screen : screens[0]?.id || "none";
 
   useEffect(() => {
     onUnauthenticatedRef.current = onUnauthenticated;
@@ -89,6 +100,10 @@ export function CashierDashboard({ token, user, onUnauthenticated, onInactive })
   }, []);
 
   useEffect(() => {
+    if (!pager) {
+      return undefined;
+    }
+
     let stopped = false;
     let timer = 0;
 
@@ -111,6 +126,13 @@ export function CashierDashboard({ token, user, onUnauthenticated, onInactive })
         }
         if (error.status === 403 && error.body?.message === "inactive") {
           onInactiveRef.current();
+          return;
+        }
+        if (isFeatureUnavailable(error)) {
+          setPagerOff(true);
+          setOrders([]);
+          setListError("");
+          setLoaded(true);
           return;
         }
         setListError(staffErrorText(error));
@@ -154,7 +176,7 @@ export function CashierDashboard({ token, user, onUnauthenticated, onInactive })
       window.clearTimeout(timer);
       document.removeEventListener("visibilitychange", onVisibilityChange);
     };
-  }, [token]);
+  }, [token, pager]);
 
   const waiting = orders.filter((order) => order.status === "waiting");
   const ready = orders.filter((order) => order.status === "ready");
@@ -166,6 +188,10 @@ export function CashierDashboard({ token, user, onUnauthenticated, onInactive })
     }
     if (error.status === 403 && error.body?.message === "inactive") {
       onInactive();
+      return;
+    }
+    if (isFeatureUnavailable(error)) {
+      setPagerOff(true);
       return;
     }
     setMessage({ tone: "error", text: staffErrorText(error) });
@@ -441,21 +467,23 @@ export function CashierDashboard({ token, user, onUnauthenticated, onInactive })
             <HeaderButton onClick={onUnauthenticated}>خروج</HeaderButton>
           </div>
         </div>
-        <div className="mx-auto w-full max-w-7xl px-3 pb-3 sm:px-6">
-          <ScreenSwitch
-            value={screen}
-            onChange={setScreen}
-            options={[
-              { id: "orders", label: "الطلبات" },
-              { id: "menu", label: "القائمة" },
-            ]}
-          />
-        </div>
+        {screens.length > 1 ? (
+          <div className="mx-auto w-full max-w-7xl px-3 pb-3 sm:px-6">
+            <ScreenSwitch value={visible} onChange={setScreen} options={screens} />
+          </div>
+        ) : null}
       </header>
 
       <main className="mx-auto flex w-full max-w-7xl flex-col gap-4 px-3 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:gap-6 sm:px-6 sm:pt-8 sm:pb-8">
-        {screen === "menu" ? (
-          <RestaurantMenu token={token} onUnauthenticated={onUnauthenticated} onInactive={onInactive} />
+        {visible === "none" ? (
+          <p className="text-base font-medium text-burgundy-deep">{cashierCopy.featureUnavailable}</p>
+        ) : visible === "menu" ? (
+          <RestaurantMenu
+            token={token}
+            onUnauthenticated={onUnauthenticated}
+            onInactive={onInactive}
+            onFeatureUnavailable={() => setMenuOff(true)}
+          />
         ) : (
           <>
         <OrderComposer

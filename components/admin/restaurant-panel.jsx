@@ -5,6 +5,7 @@ import { ActionButton } from "@/components/cashier/action-button";
 import { Field, SelectInput, TextInput } from "@/components/admin/fields";
 import { formatStamp, slugPattern, wholeNumber } from "@/lib/admin/format";
 import { restaurantIconSrc } from "@/lib/api/client";
+import { featureSummary } from "@/lib/features";
 
 const qrLabel = {
   shared: "رمز مشترك",
@@ -231,6 +232,9 @@ export function RestaurantPanel({
                         {restaurant.slug}
                       </p>
                       <p className="mt-2 text-sm leading-6 text-ink/70">{subscriptionLine(restaurant)}</p>
+                      {featureSummary(restaurant) ? (
+                        <p className="mt-1 text-sm text-ink/55">{featureSummary(restaurant)}</p>
+                      ) : null}
                       <p className="mt-1 text-sm text-ink/50">
                         {qrLabel[restaurant.preferred_qr_mode] || restaurant.preferred_qr_mode}
                         {" · "}
@@ -307,7 +311,7 @@ export function RestaurantPanel({
               <option value="">{editing ? "بدون تغيير" : "اختاروا خطة"}</option>
               {activePlans.map((plan) => (
                 <option key={plan.id} value={plan.id}>
-                  {plan.name}
+                  {featureSummary(plan) ? `${plan.name} · ${featureSummary(plan)}` : plan.name}
                 </option>
               ))}
             </SelectInput>

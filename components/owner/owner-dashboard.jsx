@@ -10,6 +10,7 @@ import { OwnerReviews } from "@/components/owner/owner-reviews";
 import { RestaurantMenu } from "@/components/menu/restaurant-menu";
 import { ScreenSwitch } from "@/components/menu/screen-switch";
 import { qrTargetUrl } from "@/lib/qr/download";
+import { readFeatures } from "@/lib/features";
 import { defaultRange, rangeError, statsErrorText } from "@/lib/owner/stats";
 
 const fieldClass =
@@ -39,8 +40,15 @@ export function OwnerDashboard({ token, user, onUnauthenticated, onInactive }) {
   const [busy, setBusy] = useState(false);
   const [qr, setQr] = useState(null);
   const [screen, setScreen] = useState("stats");
+  const [menuOff, setMenuOff] = useState(false);
   const onUnauthenticatedRef = useRef(onUnauthenticated);
   const onInactiveRef = useRef(onInactive);
+  const menuOn = readFeatures(user.restaurant).menu && !menuOff;
+  const screens = [
+    { id: "stats", label: "الإحصاءات" },
+    menuOn ? { id: "menu", label: "القائمة" } : null,
+  ].filter(Boolean);
+  const visible = screens.some((item) => item.id === screen) ? screen : "stats";
 
   useEffect(() => {
     onUnauthenticatedRef.current = onUnauthenticated;
@@ -171,7 +179,7 @@ export function OwnerDashboard({ token, user, onUnauthenticated, onInactive }) {
           <BrandMark className="h-10 w-10 sm:h-12 sm:w-12" />
           <div className="min-w-0">
             <h1 className="truncate font-display text-xl font-bold text-burgundy-deep sm:text-2xl">
-              {screen === "menu" ? "قائمة المطعم" : "إحصاءات المطعم"}
+              {visible === "menu" ? "قائمة المطعم" : "إحصاءات المطعم"}
             </h1>
             {user.restaurant?.name ? (
               <p className="truncate text-sm font-medium text-ink/50">{user.restaurant.name}</p>
@@ -189,21 +197,21 @@ export function OwnerDashboard({ token, user, onUnauthenticated, onInactive }) {
             <HeaderButton onClick={onUnauthenticated}>تسجيل الخروج</HeaderButton>
           </div>
         </div>
-        <div className="mx-auto w-full max-w-7xl px-4 pb-3 sm:px-8">
-          <ScreenSwitch
-            value={screen}
-            onChange={setScreen}
-            options={[
-              { id: "stats", label: "الإحصاءات" },
-              { id: "menu", label: "القائمة" },
-            ]}
-          />
-        </div>
+        {screens.length > 1 ? (
+          <div className="mx-auto w-full max-w-7xl px-4 pb-3 sm:px-8">
+            <ScreenSwitch value={visible} onChange={setScreen} options={screens} />
+          </div>
+        ) : null}
       </header>
 
       <main className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 pt-6 pb-[max(2rem,env(safe-area-inset-bottom))] sm:gap-8 sm:px-8 sm:pt-8 sm:pb-12">
-        {screen === "menu" ? (
-          <RestaurantMenu token={token} onUnauthenticated={onUnauthenticated} onInactive={onInactive} />
+        {visible === "menu" ? (
+          <RestaurantMenu
+            token={token}
+            onUnauthenticated={onUnauthenticated}
+            onInactive={onInactive}
+            onFeatureUnavailable={() => setMenuOff(true)}
+          />
         ) : (
           <>
         <form

@@ -1,6 +1,10 @@
 "use client";
 
 export function ScreenSwitch({ value, onChange, options }) {
+  if (!options || options.length < 2) {
+    return null;
+  }
+
   return (
     <div className="grid w-full grid-cols-2 gap-1 rounded-2xl bg-white p-1 ring-1 ring-burgundy/10 sm:max-w-sm">
       {options.map((option) => {

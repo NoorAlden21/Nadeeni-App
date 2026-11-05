@@ -9,6 +9,7 @@ import { RestaurantPanel } from "@/components/admin/restaurant-panel";
 import { apiFetch } from "@/lib/api/client";
 import { adminErrorText, sortByName } from "@/lib/admin/format";
 import { staffErrorText } from "@/lib/cashier/orders";
+import { readFeatures } from "@/lib/features";
 
 function HeaderButton({ children, onClick }) {
   return (
@@ -242,6 +243,32 @@ export function AdminDashboard({ token, user, onUnauthenticated }) {
     });
   }
 
+  async function changePlanFlags(plan, body) {
+    await mutate(async () => {
+      try {
+        const updated = await apiFetch(
+          `/admin/subscription-plans/${encodeURIComponent(plan.id)}`,
+          {
+            token,
+            method: "PATCH",
+            body,
+          },
+        );
+        setPlans((current) =>
+          sortByName(current.map((item) => (item.id === updated.id ? updated : item))),
+        );
+        const features = readFeatures(updated);
+        setRestaurants((current) =>
+          current.map((restaurant) =>
+            restaurant.subscription?.plan_id === updated.id ? { ...restaurant, features } : restaurant,
+          ),
+        );
+      } catch (error) {
+        fail(error);
+      }
+    });
+  }
+
   async function confirmDeletePlan() {
     if (!planTarget || confirming) {
       return;
@@ -352,6 +379,7 @@ export function AdminDashboard({ token, user, onUnauthenticated }) {
             busy={busy}
             onCreate={createPlan}
             onToggle={togglePlan}
+            onChangeFlags={changePlanFlags}
             onDelete={setPlanTarget}
           />
         )}
