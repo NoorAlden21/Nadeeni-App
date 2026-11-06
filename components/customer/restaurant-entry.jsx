@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { PoweredBy } from "@/components/brand/powered-by";
 import { ActionButton } from "@/components/cashier/action-button";
 import { PublicMenu } from "@/components/customer/public-menu";
+import { RestaurantContact } from "@/components/customer/restaurant-contact";
 import { apiFetch, restaurantIconSrc } from "@/lib/api/client";
 import { readPublicMenu } from "@/lib/customer/public-menu";
 import { readFeatures } from "@/lib/features";
@@ -33,6 +34,7 @@ export function RestaurantEntry({ slug }) {
   const [features, setFeatures] = useState({ pager: false, menu: false, ordering: false, kitchen: false });
   const [browsing, setBrowsing] = useState(false);
   const [savedOrder, setSavedOrder] = useState("");
+  const [contact, setContact] = useState(null);
 
   useEffect(() => {
     let stopped = false;
@@ -42,6 +44,7 @@ export function RestaurantEntry({ slug }) {
     setMenuLoaded(false);
     setMenuProblem("");
     setFeatures({ pager: false, menu: false, ordering: false, kitchen: false });
+    setContact(null);
 
     if (typeof window !== "undefined") {
       const last = localStorage.getItem(`nadeeni_last_order_${slug}`);
@@ -54,6 +57,7 @@ export function RestaurantEntry({ slug }) {
         const icon = restaurantIconSrc(restaurant?.icon_url);
         setName(restaurant?.name || "");
         setIconUrl(icon);
+        setContact(restaurant);
         rememberRestaurantIcon(restaurant?.name, icon);
 
         const flags = readFeatures(restaurant);
@@ -186,6 +190,7 @@ export function RestaurantEntry({ slug }) {
           <PublicMenu
             name={name}
             iconUrl={iconUrl}
+            contact={contact}
             banners={menu.banners}
             categories={menu.categories}
             loading={!menuLoaded}
@@ -210,6 +215,7 @@ export function RestaurantEntry({ slug }) {
               </h1>
             </div>
           ) : null}
+          <RestaurantContact contact={contact} className="justify-center" />
         </div>
       </Screen>
     );
@@ -229,6 +235,7 @@ export function RestaurantEntry({ slug }) {
           <PublicMenu
             name={name}
             iconUrl={iconUrl}
+            contact={contact}
             banners={menu.banners}
             categories={menu.categories}
             loading={!menuLoaded}
@@ -268,6 +275,7 @@ export function RestaurantEntry({ slug }) {
                 </h1>
               </div>
             ) : null}
+            <RestaurantContact contact={contact} className="justify-center lg:justify-start" />
           </div>
 
           {/* تسلسل النظام (Progress Stepper) بدلاً من الفاتورة */}

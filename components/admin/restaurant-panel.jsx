@@ -5,6 +5,7 @@ import { ActionButton } from "@/components/cashier/action-button";
 import { Field, SelectInput, TextInput } from "@/components/admin/fields";
 import { formatStamp, slugPattern, wholeNumber } from "@/lib/admin/format";
 import { restaurantIconSrc } from "@/lib/api/client";
+import { contactChanges } from "@/lib/contact";
 import { featureSummary } from "@/lib/features";
 
 const qrLabel = {
@@ -45,6 +46,11 @@ function toPayload(body, icon) {
 
   const data = new FormData();
   Object.entries(body).forEach(([key, value]) => {
+    if (value === null || value === undefined) {
+      // Multipart cannot send JSON null. An empty field clears a contact value.
+      data.append(key, "");
+      return;
+    }
     data.append(key, typeof value === "boolean" ? (value ? "1" : "0") : String(value));
   });
   data.append("icon", icon);
@@ -59,6 +65,9 @@ const blankForm = {
   order_ttl_minutes: "240",
   is_active: true,
   plan_id: "",
+  facebook_url: "",
+  instagram_url: "",
+  phone: "",
 };
 
 export function RestaurantPanel({
@@ -107,6 +116,9 @@ export function RestaurantPanel({
       order_ttl_minutes: String(restaurant.order_ttl_minutes ?? 240),
       is_active: Boolean(restaurant.is_active),
       plan_id: "",
+      facebook_url: restaurant.facebook_url || "",
+      instagram_url: restaurant.instagram_url || "",
+      phone: restaurant.phone || "",
     });
     setError("");
   }
@@ -149,7 +161,12 @@ export function RestaurantPanel({
         setError("اختاروا خطة اشتراك فعّالة.");
         return null;
       }
-      return toPayload({ ...next, plan_id: planId }, icon);
+      const contact = contactChanges(null, form);
+      if (contact.error) {
+        setError(contact.error);
+        return null;
+      }
+      return toPayload({ ...next, plan_id: planId, ...contact.body }, icon);
     }
 
     const currentPlanId = editing.subscription?.plan_id ?? null;
@@ -175,6 +192,13 @@ export function RestaurantPanel({
         body.plan_id = planId;
       }
     }
+
+    const contact = contactChanges(editing, form);
+    if (contact.error) {
+      setError(contact.error);
+      return null;
+    }
+    Object.assign(body, contact.body);
 
     if (Object.keys(body).length === 0 && !icon) {
       setError("لا تغيير للحفظ.");
@@ -240,6 +264,18 @@ export function RestaurantPanel({
                         {" · "}
                         {restaurant.order_ttl_minutes} د
                       </p>
+                      {restaurant.phone ? (
+                        <p dir="ltr" className="mt-1 text-end font-sans text-sm text-ink/70">
+                          {restaurant.phone}
+                        </p>
+                      ) : null}
+                      {restaurant.facebook_url || restaurant.instagram_url ? (
+                        <p className="mt-1 text-sm text-ink/50">
+                          {[restaurant.facebook_url ? "فيسبوك" : "", restaurant.instagram_url ? "إنستغرام" : ""]
+                            .filter(Boolean)
+                            .join(" · ")}
+                        </p>
+                      ) : null}
                       </div>
                     </div>
                     <span
@@ -375,6 +411,50 @@ export function RestaurantPanel({
               <img src={restaurantIconSrc(editing.icon_url)} alt="" className="mt-3 h-16 w-16 rounded-2xl object-cover ring-1 ring-burgundy/10" />
             ) : null}
           </Field>
+          <Field id="restaurant-facebook" label="فيسبوك">
+            <TextInput
+              id="restaurant-facebook"
+              dir="ltr"
+              type="text"
+              inputMode="url"
+              autoComplete="url"
+              spellCheck={false}
+              maxLength={255}
+              placeholder="https://facebook.com/example"
+              value={form.facebook_url}
+              onChange={(event) => update("facebook_url", event.target.value)}
+            />
+          </Field>
+          <Field id="restaurant-instagram" label="إنستغرام">
+            <TextInput
+              id="restaurant-instagram"
+              dir="ltr"
+              type="text"
+              inputMode="url"
+              autoComplete="url"
+              spellCheck={false}
+              maxLength={255}
+              placeholder="https://instagram.com/example"
+              value={form.instagram_url}
+              onChange={(event) => update("instagram_url", event.target.value)}
+            />
+          </Field>
+          <Field id="restaurant-phone" label="رقم الجوال">
+            <TextInput
+              id="restaurant-phone"
+              dir="ltr"
+              type="text"
+              inputMode="tel"
+              autoComplete="tel"
+              maxLength={32}
+              placeholder="+963944123456"
+              value={form.phone}
+              onChange={(event) => update("phone", event.target.value)}
+            />
+          </Field>
+          <p className="text-sm leading-6 text-ink/55">
+            بيانات التواصل اختيارية. عند التعديل، الحقل الفارغ يمسح القيمة الحالية.
+          </p>
           <label className="flex cursor-pointer items-center gap-2 text-sm font-semibold text-burgundy-deep">
             <input
               type="checkbox"
