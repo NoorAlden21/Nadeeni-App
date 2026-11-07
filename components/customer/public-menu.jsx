@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { menuAssetSrc } from "@/lib/api/client";
+// import { RestaurantContact } from "@/components/customer/restaurant-contact";
 import { customerCopy } from "@/lib/customer/public";
 import { categoryIndexAtMarker } from "@/lib/customer/public-menu";
 import { formatPrice } from "@/lib/menu/menu";
@@ -580,7 +581,7 @@ function MenuItemCard({ item, layout, onOpen }) {
   );
 }
 
-export function PublicMenu({ name, iconUrl, banners = [], categories, loading = false, onBack }) {
+export function PublicMenu({ name, iconUrl, contact = null, banners = [], categories, loading = false, onBack }) {
   const reduceMotion = useReducedMotion();
   const [active, setActive] = useState(0);
   const [board, setBoard] = useState("main");
@@ -595,6 +596,7 @@ export function PublicMenu({ name, iconUrl, banners = [], categories, loading = 
   const shown = visible.some((item) => item.sourceIndex === active) ? active : (visible[0]?.sourceIndex ?? active);
   const menuRef = useRef(null);
   const barRef = useRef(null);
+  const categoryBarRef = useRef(null);
   const stripRef = useRef(null);
   const sheetRef = useRef(null);
   const pauseSpy = useRef(false);
@@ -616,13 +618,17 @@ export function PublicMenu({ name, iconUrl, banners = [], categories, loading = 
     const root = menuRef.current;
     if (!bar || !root) return undefined;
     const apply = () => {
-      root.style.setProperty("--menu-sticky", `${bar.offsetHeight}px`);
+      const header = bar.offsetHeight;
+      const chips = categoryBarRef.current?.offsetHeight ?? 0;
+      root.style.setProperty("--menu-sticky", `${header}px`);
+      root.style.setProperty("--menu-anchor", `${header + chips}px`);
     };
     apply();
     const observer = new ResizeObserver(apply);
     observer.observe(bar);
+    if (categoryBarRef.current) observer.observe(categoryBarRef.current);
     return () => observer.disconnect();
-  }, [sectionKey, loading]);
+  }, [sectionKey, loading, visible.length, banners.length]);
 
   useEffect(() => {
     const root = sheetRef.current;
@@ -631,7 +637,10 @@ export function PublicMenu({ name, iconUrl, banners = [], categories, loading = 
     let frame = 0;
     function read() {
       if (pauseSpy.current) return;
-      const marker = (barRef.current?.getBoundingClientRect().bottom ?? 0) + 24;
+      const headerBottom = barRef.current?.getBoundingClientRect().bottom ?? 0;
+      const chips = categoryBarRef.current?.getBoundingClientRect();
+      const chipsStuck = chips && chips.top <= headerBottom + 1;
+      const marker = (chipsStuck ? chips.bottom : headerBottom) + 24;
       const sections = [...root.querySelectorAll("[data-menu-section]")].map((node) => {
         const rect = node.getBoundingClientRect();
         return { index: Number(node.dataset.menuSection), top: rect.top, bottom: rect.bottom };
@@ -753,65 +762,71 @@ export function PublicMenu({ name, iconUrl, banners = [], categories, loading = 
             <img src={iconUrl} alt="" className="size-10 shrink-0 rounded-full bg-[#f3e6c8] object-cover ring-1 ring-black/5 sm:size-12 md:size-14" />
           ) : null}
           {name ? <h1 className="min-w-0 truncate text-sm font-semibold text-ink sm:text-base md:text-lg">{name}</h1> : null}
+          {/* <RestaurantContact contact={contact} icons /> */}
         </div>
 
         {!loading && categories.length > 0 ? (
-          <div className="flex flex-col gap-3 pb-3 sm:flex-row sm:items-center sm:gap-4">
-            <div className="flex w-full items-center gap-2 sm:order-2 sm:w-1/3 sm:min-w-0">
-              <div className="relative min-w-0 flex-1">
-                <SearchIcon />
-                <input
-                  type="search"
-                  value={query}
-                  onChange={(event) => setQuery(event.target.value)}
-                  placeholder={customerCopy.menuSearch}
-                  aria-label={customerCopy.menuSearch}
-                  enterKeyHint="search"
-                  autoComplete="off"
-                  className="h-11 w-full rounded-full border border-black/10 bg-white ps-11 pe-4 text-sm text-ink outline-none placeholder:text-ink/35 focus:ring-2 focus:ring-gold"
-                />
-              </div>
-              <button
-                type="button"
-                aria-label={customerCopy.menuCategories}
-                aria-expanded={filtersOpen}
-                title={customerCopy.menuCategories}
-                disabled={!showStrip}
-                onClick={() => {
-                  setPickerOpen(false);
-                  setFiltersOpen(true);
-                }}
-                className="inline-flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-full border border-black/10 bg-white text-burgundy shadow-[0_8px_18px_-12px_rgba(74,4,24,0.85)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold disabled:cursor-default disabled:opacity-40"
-              >
-                <Funnel size={20} weight="regular" />
-              </button>
+          <div className="flex items-center gap-2 pb-3">
+            <div className="relative min-w-0 flex-1">
+              <SearchIcon />
+              <input
+                type="search"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder={customerCopy.menuSearch}
+                aria-label={customerCopy.menuSearch}
+                enterKeyHint="search"
+                autoComplete="off"
+                className="h-11 w-full rounded-full border border-black/10 bg-white ps-11 pe-4 text-sm text-ink outline-none placeholder:text-ink/35 focus:ring-2 focus:ring-gold"
+              />
             </div>
-            <div className="flex min-w-0 items-center sm:order-1 sm:w-2/3">
-              <button
-                type="button"
-                aria-label={customerCopy.menuPick}
-                aria-expanded={pickerOpen}
-                title={customerCopy.menuPick}
-                onClick={() => {
-                  setFiltersOpen(false);
-                  setPickerOpen(true);
-                }}
-                className="me-2 inline-flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-full border border-black/10 bg-white text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
-              >
-                <BarsIcon />
-              </button>
-              {showStrip ? (
-                <div className="min-w-0 flex-1">
-                  <CategoryStrip categories={visible} active={shown} onChoose={chooseCategory} stripRef={stripRef} />
-                </div>
-              ) : null}
-            </div>
+            <button
+              type="button"
+              aria-label={customerCopy.menuCategories}
+              aria-expanded={filtersOpen}
+              title={customerCopy.menuCategories}
+              disabled={!showStrip}
+              onClick={() => {
+                setPickerOpen(false);
+                setFiltersOpen(true);
+              }}
+              className="inline-flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-full border border-black/10 bg-white text-burgundy shadow-[0_8px_18px_-12px_rgba(74,4,24,0.85)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold disabled:cursor-default disabled:opacity-40"
+            >
+              <Funnel size={20} weight="regular" />
+            </button>
           </div>
         ) : null}
       </div>
 
       {banners.length > 0 ? (
         <BannerHero banners={banners} />
+      ) : null}
+
+      {!loading && showStrip ? (
+        <div
+          ref={categoryBarRef}
+          className="sticky z-20 -mx-4 bg-ivory/95 px-4 py-2 backdrop-blur-md sm:-mx-8 sm:px-8 lg:-mx-12 lg:px-12"
+          style={{ top: "var(--menu-sticky, 4.75rem)" }}
+        >
+          <div className="flex min-w-0 items-center">
+            <button
+              type="button"
+              aria-label={customerCopy.menuPick}
+              aria-expanded={pickerOpen}
+              title={customerCopy.menuPick}
+              onClick={() => {
+                setFiltersOpen(false);
+                setPickerOpen(true);
+              }}
+              className="me-2 inline-flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-full border border-black/10 bg-white text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
+            >
+              <BarsIcon />
+            </button>
+            <div className="min-w-0 flex-1">
+              <CategoryStrip categories={visible} active={shown} onChoose={chooseCategory} stripRef={stripRef} />
+            </div>
+          </div>
+        </div>
       ) : null}
 
       {loading ? (
@@ -827,7 +842,7 @@ export function PublicMenu({ name, iconUrl, banners = [], categories, loading = 
                 key={`${board}-${group.sourceIndex}`}
                 data-menu-section={group.sourceIndex}
                 aria-labelledby={`menu-category-${group.sourceIndex}`}
-                className="scroll-mt-[calc(var(--menu-sticky,9rem)+0.75rem)]"
+                className="scroll-mt-[calc(var(--menu-anchor,var(--menu-sticky,9rem))+0.75rem)]"
               >
                 <div className="mb-3.5 flex items-center justify-between gap-3">
                   <h2 id={`menu-category-${group.sourceIndex}`} className="min-w-0 truncate font-detail text-[1.35rem] leading-8 font-bold text-ink">

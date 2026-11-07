@@ -6,6 +6,7 @@ import { ActionButton } from "@/components/cashier/action-button";
 import { apiFetch } from "@/lib/api/client";
 import { QrDialog } from "@/components/cashier/qr-dialog";
 import { OwnerCharts } from "@/components/owner/owner-charts";
+import { OwnerContact } from "@/components/owner/owner-contact";
 import { OwnerReviews } from "@/components/owner/owner-reviews";
 import { RestaurantMenu } from "@/components/menu/restaurant-menu";
 import { ScreenSwitch } from "@/components/menu/screen-switch";
@@ -40,12 +41,14 @@ export function OwnerDashboard({ token, user, onUnauthenticated, onInactive }) {
   const [busy, setBusy] = useState(false);
   const [qr, setQr] = useState(null);
   const [screen, setScreen] = useState("stats");
+  const [contact, setContact] = useState(null);
   const [menuOff, setMenuOff] = useState(false);
   const onUnauthenticatedRef = useRef(onUnauthenticated);
   const onInactiveRef = useRef(onInactive);
   const menuOn = readFeatures(user.restaurant).menu && !menuOff;
   const screens = [
     { id: "stats", label: "الإحصاءات" },
+    { id: "contact", label: "التواصل" },
     menuOn ? { id: "menu", label: "القائمة" } : null,
   ].filter(Boolean);
   const visible = screens.some((item) => item.id === screen) ? screen : "stats";
@@ -179,7 +182,7 @@ export function OwnerDashboard({ token, user, onUnauthenticated, onInactive }) {
           <BrandMark className="h-10 w-10 sm:h-12 sm:w-12" />
           <div className="min-w-0">
             <h1 className="truncate font-display text-xl font-bold text-burgundy-deep sm:text-2xl">
-              {visible === "menu" ? "قائمة المطعم" : "إحصاءات المطعم"}
+              {visible === "menu" ? "قائمة المطعم" : visible === "contact" ? "بيانات التواصل" : "إحصاءات المطعم"}
             </h1>
             {user.restaurant?.name ? (
               <p className="truncate text-sm font-medium text-ink/50">{user.restaurant.name}</p>
@@ -211,6 +214,14 @@ export function OwnerDashboard({ token, user, onUnauthenticated, onInactive }) {
             onUnauthenticated={onUnauthenticated}
             onInactive={onInactive}
             onFeatureUnavailable={() => setMenuOff(true)}
+          />
+        ) : visible === "contact" ? (
+          <OwnerContact
+            token={token}
+            restaurant={contact ? { ...user.restaurant, ...contact } : user.restaurant}
+            onSaved={setContact}
+            onUnauthenticated={onUnauthenticated}
+            onInactive={onInactive}
           />
         ) : (
           <>
