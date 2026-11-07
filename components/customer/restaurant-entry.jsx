@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { PoweredBy } from "@/components/brand/powered-by";
 import { ActionButton } from "@/components/cashier/action-button";
 import { PublicMenu } from "@/components/customer/public-menu";
-import { RestaurantContact } from "@/components/customer/restaurant-contact";
+// import { RestaurantContact } from "@/components/customer/restaurant-contact";
 import { apiFetch, restaurantIconSrc } from "@/lib/api/client";
 import { readPublicMenu } from "@/lib/customer/public-menu";
 import { readFeatures } from "@/lib/features";
@@ -215,7 +215,7 @@ export function RestaurantEntry({ slug }) {
               </h1>
             </div>
           ) : null}
-          <RestaurantContact contact={contact} className="justify-center" />
+          {/* <RestaurantContact contact={contact} className="justify-center" /> */}
         </div>
       </Screen>
     );
@@ -275,7 +275,7 @@ export function RestaurantEntry({ slug }) {
                 </h1>
               </div>
             ) : null}
-            <RestaurantContact contact={contact} className="justify-center lg:justify-start" />
+            {/* <RestaurantContact contact={contact} className="justify-center lg:justify-start" /> */}
           </div>
 
           {/* تسلسل النظام (Progress Stepper) بدلاً من الفاتورة */}
