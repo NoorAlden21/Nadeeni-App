@@ -10,7 +10,8 @@ import { OrderLane } from "@/components/cashier/order-lane";
 import { QrDialog } from "@/components/cashier/qr-dialog";
 import { UncollectDialog } from "@/components/cashier/uncollect-dialog";
 import { RestaurantMenu } from "@/components/menu/restaurant-menu";
-import { ScreenSwitch } from "@/components/menu/screen-switch";
+import { SideNav } from "@/components/menu/screen-switch";
+import { Bell, CircleCheck, Clock3, LogOut, Menu, QrCode, X } from "lucide-react";
 import {
   cashierCopy,
   isDuplicateNumber,
@@ -25,7 +26,7 @@ function HeaderButton({ children, onClick }) {
     <button
       type="button"
       onClick={onClick}
-      className="inline-flex h-11 cursor-pointer items-center justify-center rounded-2xl px-3 text-sm font-medium text-ink/55 underline-offset-4 transition duration-300 hover:text-burgundy hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold focus-visible:ring-offset-2 focus-visible:ring-offset-ivory"
+      className="inline-flex h-11 cursor-pointer items-center justify-center gap-2 rounded-2xl px-3 text-sm font-medium text-ink/55 underline-offset-4 transition duration-300 hover:text-burgundy hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold focus-visible:ring-offset-2 focus-visible:ring-offset-ivory"
     >
       {children}
     </button>
@@ -34,6 +35,7 @@ function HeaderButton({ children, onClick }) {
 
 export function CashierDashboard({ token, user, onUnauthenticated, onInactive }) {
   const [orders, setOrders] = useState([]);
+  const [delivered, setDelivered] = useState(0);
   const [draft, setDraft] = useState("");
   const [message, setMessage] = useState(null);
   const [listError, setListError] = useState("");
@@ -46,6 +48,7 @@ export function CashierDashboard({ token, user, onUnauthenticated, onInactive })
   const [uncollecting, setUncollecting] = useState(false);
   const [qr, setQr] = useState(null);
   const [screen, setScreen] = useState("orders");
+  const [navOpen, setNavOpen] = useState(false);
   const [pagerOff, setPagerOff] = useState(false);
   const [menuOff, setMenuOff] = useState(false);
   const onUnauthenticatedRef = useRef(onUnauthenticated);
@@ -60,6 +63,28 @@ export function CashierDashboard({ token, user, onUnauthenticated, onInactive })
     menuOn ? { id: "menu", label: "القائمة" } : null,
   ].filter(Boolean);
   const visible = screens.some((item) => item.id === screen) ? screen : screens[0]?.id || "none";
+  const showNav = screens.length > 1;
+  const sectionTitle = screens.find((item) => item.id === visible)?.label || "لوحة الكاشير";
+
+  useEffect(() => {
+    if (!navOpen) {
+      return undefined;
+    }
+
+    function onKey(event) {
+      if (event.key === "Escape") {
+        setNavOpen(false);
+      }
+    }
+
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [navOpen]);
+
+  function pickScreen(id) {
+    setScreen(id);
+    setNavOpen(false);
+  }
 
   useEffect(() => {
     onUnauthenticatedRef.current = onUnauthenticated;
@@ -109,11 +134,15 @@ export function CashierDashboard({ token, user, onUnauthenticated, onInactive })
 
     async function load() {
       try {
-        const list = await apiFetch("/orders", { token });
+        const [list, collected] = await Promise.all([
+          apiFetch("/orders", { token }),
+          apiFetch("/orders?status=collected", { token }),
+        ]);
         if (stopped) {
           return;
         }
         setOrders(Array.isArray(list) ? list : []);
+        setDelivered(Array.isArray(collected) ? collected.length : 0);
         setListError("");
         setLoaded(true);
       } catch (error) {
@@ -131,6 +160,7 @@ export function CashierDashboard({ token, user, onUnauthenticated, onInactive })
         if (isFeatureUnavailable(error)) {
           setPagerOff(true);
           setOrders([]);
+          setDelivered(0);
           setListError("");
           setLoaded(true);
           return;
@@ -336,6 +366,7 @@ export function CashierDashboard({ token, user, onUnauthenticated, onInactive })
 
   function handleDeliver(id) {
     runOrderAction(id, "/collect", () => {
+      setDelivered((count) => count + 1);
       setMessage(null);
     });
   }
@@ -446,32 +477,91 @@ export function CashierDashboard({ token, user, onUnauthenticated, onInactive })
 
   return (
     <div className="min-h-dvh overflow-x-clip bg-ivory">
+      {showNav ? (
+        <>
+          {navOpen ? (
+            <button
+              type="button"
+              aria-label="إغلاق الأقسام"
+              className="fixed inset-0 z-30 bg-burgundy-deep/40 md:hidden"
+              onClick={() => setNavOpen(false)}
+            />
+          ) : null}
+          <aside
+            id="cashier-nav"
+            className={`${navOpen ? "flex" : "hidden md:flex"} fixed inset-y-0 start-0 z-40 w-64 flex-col border-e border-burgundy/10 bg-paper pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] font-detail`}
+          >
+            <div className="flex items-center gap-3 border-b border-burgundy/10 px-4 py-4">
+              <BrandMark className="h-11 w-11" />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-lg font-bold text-burgundy-deep">لوحة الكاشير</p>
+                {user.restaurant?.name ? (
+                  <p className="truncate text-sm text-ink/55">{user.restaurant.name}</p>
+                ) : null}
+              </div>
+              <button
+                type="button"
+                aria-label="إغلاق الأقسام"
+                onClick={() => setNavOpen(false)}
+                className="inline-flex size-10 shrink-0 cursor-pointer items-center justify-center rounded-full text-burgundy hover:bg-foam focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold md:hidden"
+              >
+                <X className="size-4" />
+              </button>
+            </div>
+            <div className="px-3 pt-3">
+              <SideNav value={visible} onChange={pickScreen} options={screens} />
+            </div>
+            <div className="mt-auto flex flex-col gap-2 border-t border-burgundy/10 p-3">
+              <button
+                type="button"
+                onClick={onUnauthenticated}
+                className="inline-flex h-11 w-full cursor-pointer items-center justify-start gap-2 rounded-2xl px-3 text-sm font-medium text-ink/55 transition duration-300 hover:bg-foam hover:text-burgundy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
+              >
+                <LogOut className="size-5 shrink-0" aria-hidden="true" />
+                خروج
+              </button>
+            </div>
+          </aside>
+        </>
+      ) : null}
+
+      <div className={showNav ? "md:ps-64" : ""}>
       <header className="sticky top-0 z-20 border-b border-burgundy/10 bg-ivory pt-[env(safe-area-inset-top)]">
         <div className="mx-auto flex min-h-16 w-full max-w-7xl items-center gap-3 px-3 py-2 sm:min-h-[4.75rem] sm:px-6">
-          <BrandMark className="h-10 w-10 sm:h-12 sm:w-12" />
+          {showNav ? (
+            <button
+              type="button"
+              aria-expanded={navOpen}
+              aria-controls="cashier-nav"
+              onClick={() => setNavOpen(true)}
+              className="inline-flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-2xl text-burgundy ring-1 ring-burgundy/10 hover:bg-foam focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold md:hidden"
+            >
+              <Menu className="size-5" />
+              <span className="sr-only">فتح الأقسام</span>
+            </button>
+          ) : null}
+          <BrandMark className={`h-10 w-10 sm:h-12 sm:w-12 ${showNav ? "md:hidden" : ""}`} />
           <div className="min-w-0">
             <h1 className="truncate font-display text-xl font-semibold text-burgundy-deep sm:text-2xl lg:text-3xl">
-              لوحة الكاشير
+              {showNav ? sectionTitle : "لوحة الكاشير"}
             </h1>
             {user.restaurant?.name ? (
-              <p className="truncate text-sm text-ink/55">{user.restaurant.name}</p>
+              <p className={`truncate text-sm text-ink/55 ${showNav ? "md:hidden" : ""}`}>{user.restaurant.name}</p>
             ) : null}
           </div>
           <div className="ms-auto flex shrink-0 items-center gap-2">
-            <ActionButton
-              variant={user.restaurant?.preferred_qr_mode === "per_order" ? "ghost" : "quiet"}
-              onClick={showSharedQr}
-            >
+            <ActionButton variant="soft" onClick={showSharedQr}>
+              <QrCode className="size-5 shrink-0" aria-hidden="true" />
               رمز المطعم
             </ActionButton>
-            <HeaderButton onClick={onUnauthenticated}>خروج</HeaderButton>
+            {showNav ? null : (
+              <HeaderButton onClick={onUnauthenticated}>
+                <LogOut className="size-5 shrink-0" aria-hidden="true" />
+                خروج
+              </HeaderButton>
+            )}
           </div>
         </div>
-        {screens.length > 1 ? (
-          <div className="mx-auto w-full max-w-7xl px-3 pb-3 sm:px-6">
-            <ScreenSwitch value={visible} onChange={setScreen} options={screens} />
-          </div>
-        ) : null}
       </header>
 
       <main className="mx-auto flex w-full max-w-7xl flex-col gap-4 px-3 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:gap-6 sm:px-6 sm:pt-8 sm:pb-8">
@@ -486,6 +576,29 @@ export function CashierDashboard({ token, user, onUnauthenticated, onInactive })
           />
         ) : (
           <>
+        <section aria-label="ملخص الطلبات" className="grid grid-cols-3 gap-2 sm:gap-3">
+          {[
+            { label: "قيد التحضير", value: waiting.length, icon: Clock3, ground: "bg-foam", mark: "bg-[#efd4dc] text-burgundy" },
+            { label: "جاهزة للاستلام", value: ready.length, icon: Bell, ground: "bg-gold/20", mark: "bg-gold/25 text-gold-deep", live: true },
+            { label: "تم تسليمها", value: delivered, icon: CircleCheck, ground: "bg-ivory", mark: "bg-[#e7f6ee] text-[#1f7a4d]" },
+          ].map((item) => (
+            <article
+              key={item.label}
+              className={`flex items-center gap-2.5 rounded-2xl px-3 py-3 shadow-[0_16px_40px_-28px_rgba(74,4,24,0.35)] ring-1 ring-burgundy/10 sm:gap-3 sm:px-4 ${item.ground} ${item.live && loaded && item.value > 0 ? "ring-2 ring-gold" : ""}`}
+            >
+              <span className={`grid size-9 shrink-0 place-items-center rounded-full ${item.mark}`}>
+                <item.icon className="size-4" aria-hidden="true" />
+              </span>
+              <div className="min-w-0">
+                <p className="font-sans text-3xl leading-none font-bold text-burgundy-deep tabular-nums" dir="ltr">
+                  {loaded ? item.value : "–"}
+                </p>
+                <p className="mt-1 font-detail text-sm leading-5 font-semibold text-burgundy-deep">{item.label}</p>
+              </div>
+            </article>
+          ))}
+        </section>
+
         <OrderComposer
           draft={draft}
           message={message}
@@ -552,6 +665,7 @@ export function CashierDashboard({ token, user, onUnauthenticated, onInactive })
           </>
         )}
       </main>
+      </div>
       <UncollectDialog
         order={uncollectTarget}
         pending={uncollecting}
