@@ -563,19 +563,29 @@ function CategoryStrip({ categories, active, onChoose, stripRef, lang }) {
   );
 }
 
-function MenuItemCard({ item, layout, onOpen, lang }) {
+function MenuItemCard({ item, layout, onOpen, lang, index = 0 }) {
+  const reduce = useReducedMotion();
   const price = item.price === null ? "" : formatPrice(item.price);
   const itemName = localized(item.name, lang);
   const descriptionText = localized(item.description, lang);
   const description = descriptionText && descriptionText.trim() !== itemName.trim() ? descriptionText : "";
+  const enter = reduce ? false : { y: 16, opacity: 0 };
+  const settle = { y: 0, opacity: 1 };
+  const motionProps = {
+    initial: enter,
+    animate: settle,
+    transition: { duration: 0.4, delay: Math.min(index, 6) * 0.07, ease: "easeOut" },
+    whileTap: reduce ? undefined : { scale: 0.98 },
+  };
   return (
     <li>
       {layout === "list" ? (
-        <button
+        <motion.button
           type="button"
           onClick={() => onOpen(item)}
           dir={lang === "en" ? "ltr" : "rtl"}
-          className="flex w-full cursor-pointer items-center gap-3 rounded-2xl bg-white px-3 py-3 text-start shadow-[0_10px_30px_rgba(42,16,22,0.08)] ring-1 ring-black/[0.04] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold active:scale-[0.99] sm:hidden"
+          {...motionProps}
+          className="flex w-full cursor-pointer items-center gap-3 rounded-2xl bg-white px-3 py-3 text-start shadow-[0_10px_30px_rgba(42,16,22,0.08)] ring-1 ring-black/[0.04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold sm:hidden"
         >
           <span dir={lang === "en" ? "ltr" : "rtl"} className="flex min-w-0 flex-1 flex-col items-start gap-1.5">
             <span className="line-clamp-2 font-detail text-lg leading-tight font-bold text-burgundy">{itemName}</span>
@@ -592,12 +602,13 @@ function MenuItemCard({ item, layout, onOpen, lang }) {
             <RoundPhoto src={item.photoUrl} label={itemName} className="size-full text-2xl" />
             <ItemBadge badge={item.badge} lang={lang} />
           </span>
-        </button>
+        </motion.button>
       ) : null}
-      <button
+      <motion.button
         type="button"
         onClick={() => onOpen(item)}
-        className={`${layout === "list" ? "hidden sm:flex" : "flex"} h-full w-full cursor-pointer flex-col rounded-[1.35rem] bg-white p-2 text-start shadow-[0_14px_32px_-20px_rgba(42,16,22,0.4)] ring-1 ring-black/[0.04] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold active:scale-[0.99]`}
+        {...motionProps}
+        className={`${layout === "list" ? "hidden sm:flex" : "flex"} h-full w-full cursor-pointer flex-col rounded-[1.35rem] bg-white p-2 text-start shadow-[0_14px_32px_-20px_rgba(42,16,22,0.4)] ring-1 ring-black/[0.04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold`}
       >
         <span className="relative block overflow-hidden rounded-[1.05rem]">
           <RoundPhoto src={item.photoUrl} label={localized(item.name, lang)} className="aspect-[5/4] w-full text-3xl" />
@@ -614,7 +625,7 @@ function MenuItemCard({ item, layout, onOpen, lang }) {
             </span>
           ) : null}
         </span>
-      </button>
+      </motion.button>
     </li>
   );
 }
@@ -901,17 +912,22 @@ export function PublicMenu({ name, iconUrl, contact = null, banners = [], catego
                 aria-labelledby={`menu-category-${group.sourceIndex}`}
                 className="scroll-mt-[calc(var(--menu-anchor,var(--menu-sticky,9rem))+0.75rem)]"
               >
-                <div className="mb-3.5 flex items-center justify-between gap-3">
+                <motion.div
+                  className="mb-3.5 flex items-center justify-between gap-3"
+                  initial={reduceMotion ? false : { y: 10, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  transition={{ duration: 0.35, delay: groupIndex * 0.05, ease: "easeOut" }}
+                >
                   <h2 id={`menu-category-${group.sourceIndex}`} className="min-w-0 truncate font-detail text-[1.35rem] leading-8 font-bold text-ink">
                     {localized(group.name, lang)}
                   </h2>
                   {groupIndex === 0 ? <LayoutSwitch layout={layout} onChange={setLayout} lang={lang} /> : null}
-                </div>
+                </motion.div>
                 <ul className={itemGridClass}>
                   {cards
                     .filter((item) => item.sourceIndex === group.sourceIndex)
-                    .map((item) => (
-                      <MenuItemCard key={item.key} item={item} layout={layout} onOpen={setDetail} lang={lang} />
+                    .map((item, itemIndex) => (
+                      <MenuItemCard key={item.key} item={item} layout={layout} onOpen={setDetail} lang={lang} index={itemIndex} />
                     ))}
                 </ul>
               </section>

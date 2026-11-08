@@ -420,7 +420,6 @@ function ChoiceDoor({ onTrack, onMenu }) {
   const options = [
     {
       title: customerCopy.chooseTrack,
-      hint: customerCopy.chooseTrackHint,
       onClick: onTrack,
       icon: (
         <img src="/choice-track-mark.jpg" alt="" className="size-11 rounded-full object-cover" />
@@ -428,7 +427,6 @@ function ChoiceDoor({ onTrack, onMenu }) {
     },
     {
       title: customerCopy.chooseMenu,
-      hint: customerCopy.chooseMenuHint,
       onClick: onMenu,
       icon: (
         <img src="/choice-menu-mark.png" alt="" className="size-11 rounded-full object-cover" />
@@ -439,7 +437,14 @@ function ChoiceDoor({ onTrack, onMenu }) {
   return (
     <div className="relative flex min-h-dvh flex-col bg-[#f6efe6]">
       <div className="relative h-[40vh] min-h-[15.5rem] max-h-[23rem] overflow-hidden">
-        <img src="/choice-dining.png" alt="" className="absolute inset-0 size-full object-cover object-[center_36%]" />
+        <motion.img
+          src="/choice-dining.png"
+          alt=""
+          className="absolute inset-0 size-full object-cover object-[center_36%]"
+          initial={reduce ? false : { scale: 1.08, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ duration: 0.9, ease: "easeOut" }}
+        />
         <div
           className="absolute inset-0"
           style={{
@@ -451,13 +456,30 @@ function ChoiceDoor({ onTrack, onMenu }) {
       </div>
 
       <div className="relative z-10 mx-auto -mt-9 flex w-full max-w-md flex-1 flex-col items-center px-5 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
-        <span className="grid size-[4.25rem] place-items-center rounded-full bg-[#f6efe6] shadow-[0_12px_30px_-16px_rgba(74,4,24,0.5)]">
+        <motion.span
+          className="grid size-[4.25rem] place-items-center rounded-full bg-[#f6efe6] shadow-[0_12px_30px_-16px_rgba(74,4,24,0.5)]"
+          initial={reduce ? false : { scale: 0.6, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ type: "spring", stiffness: 280, damping: 18, delay: 0.15 }}
+        >
           <img src="/choice-cloche.png" alt="" className="block size-[2.85rem] object-contain object-center" />
-        </span>
-        <h1 className="mt-5 text-center font-display text-[1.7rem] leading-snug font-bold text-[#6e1228]">
+        </motion.span>
+        <motion.h1
+          className="mt-5 text-center font-display text-[1.7rem] leading-snug font-bold text-[#6e1228]"
+          initial={reduce ? false : { y: 14, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ duration: 0.45, delay: 0.22, ease: "easeOut" }}
+        >
           {customerCopy.chooseWelcome}
-        </h1>
-        <p className="mt-2 text-center text-sm text-[#8a3048]">{customerCopy.choosePrompt}</p>
+        </motion.h1>
+        <motion.p
+          className="mt-2 text-center text-sm text-[#8a3048]"
+          initial={reduce ? false : { y: 10, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ duration: 0.4, delay: 0.32, ease: "easeOut" }}
+        >
+          {customerCopy.choosePrompt}
+        </motion.p>
 
         <div className="mt-7 flex w-full flex-col gap-3.5">
           {options.map((option, index) => (
@@ -465,17 +487,16 @@ function ChoiceDoor({ onTrack, onMenu }) {
               key={option.title}
               type="button"
               onClick={option.onClick}
-              initial={reduce ? false : { y: 10 }}
-              animate={{ y: 0 }}
-              transition={{ duration: 0.35, delay: index * 0.06, ease: "easeOut" }}
-              whileTap={reduce ? undefined : { scale: 0.99 }}
+              initial={reduce ? false : { y: 18, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ duration: 0.4, delay: 0.4 + index * 0.1, ease: "easeOut" }}
+              whileTap={reduce ? undefined : { scale: 0.98 }}
               className="flex w-full cursor-pointer items-center gap-3 rounded-full border border-[#e4cf9a] bg-[#f6efe6] px-4 py-3.5 text-start shadow-[0_14px_30px_-22px_rgba(74,4,24,0.45)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
             >
               <span className="grid size-11 shrink-0 place-items-center text-[#7a1830]">{option.icon}</span>
               <span className="h-9 w-px shrink-0 bg-[#eadfd4]" aria-hidden="true" />
               <span className="min-w-0 flex-1">
                 <span className="block font-detail text-lg font-bold text-[#6e1228]">{option.title}</span>
-                <span className="mt-0.5 block text-xs text-[#a56a78]">{option.hint}</span>
               </span>
               <span className="grid size-8 shrink-0 place-items-center rounded-full bg-burgundy text-ivory">
                 <svg viewBox="0 0 24 24" className="size-4 rtl:-scale-x-100" aria-hidden="true" fill="none">
@@ -486,7 +507,13 @@ function ChoiceDoor({ onTrack, onMenu }) {
           ))}
         </div>
 
-        <div dir="ltr" className="mt-auto flex flex-col items-center pt-12 text-[#7a1830]">
+        <motion.div
+          dir="ltr"
+          className="mt-auto flex flex-col items-center pt-12 text-[#7a1830]"
+          initial={reduce ? false : { opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.5, delay: 0.7 }}
+        >
           <div className="flex items-center gap-3">
             <span className="h-px w-8 bg-gold" aria-hidden="true" />
             <svg viewBox="0 0 24 24" className="size-7" fill="none" aria-hidden="true">
@@ -497,7 +524,7 @@ function ChoiceDoor({ onTrack, onMenu }) {
           </div>
           <p className="mt-2 font-detail text-[0.68rem] font-semibold tracking-[0.38em]">NADEENI</p>
           <p className="mt-1 font-detail text-[0.58rem] font-medium tracking-[0.16em] text-[#8a3048]">SMARTER RESTAURANT EXPERIENCE</p>
-        </div>
+        </motion.div>
       </div>
     </div>
   );
