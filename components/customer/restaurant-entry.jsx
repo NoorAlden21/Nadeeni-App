@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { motion, useReducedMotion } from "framer-motion";
 import { PoweredBy } from "@/components/brand/powered-by";
 import { ActionButton } from "@/components/cashier/action-button";
 import { PublicMenu } from "@/components/customer/public-menu";
@@ -33,6 +34,7 @@ export function RestaurantEntry({ slug }) {
   const [menuProblem, setMenuProblem] = useState("");
   const [features, setFeatures] = useState({ pager: false, menu: false, ordering: false, kitchen: false });
   const [browsing, setBrowsing] = useState(false);
+  const [door, setDoor] = useState("choose");
   const [savedOrder, setSavedOrder] = useState("");
   const [contact, setContact] = useState(null);
 
@@ -40,6 +42,7 @@ export function RestaurantEntry({ slug }) {
     let stopped = false;
 
     setBrowsing(false);
+    setDoor("choose");
     setMenu({ banners: [], categories: [] });
     setMenuLoaded(false);
     setMenuProblem("");
@@ -239,9 +242,29 @@ export function RestaurantEntry({ slug }) {
             banners={menu.banners}
             categories={menu.categories}
             loading={!menuLoaded}
-            onBack={() => setBrowsing(false)}
+            onBack={() => {
+              setBrowsing(false);
+              setDoor("choose");
+            }}
           />
         )}
+      </Screen>
+    );
+  }
+
+  const offerChoice = features.menu && !menuProblem && door === "choose";
+
+  if (offerChoice) {
+    return (
+      <Screen bare>
+        <ChoiceDoor
+          onTrack={() => setDoor("track")}
+          onMenu={() => {
+            setError("");
+            window.scrollTo(0, 0);
+            setBrowsing(true);
+          }}
+        />
       </Screen>
     );
   }
@@ -358,17 +381,13 @@ export function RestaurantEntry({ slug }) {
           </form>
 
           {features.menu && !menuProblem ? (
-            <ActionButton
-              variant="quiet"
-              className="w-full"
-              onClick={() => {
-                setError("");
-                window.scrollTo(0, 0);
-                setBrowsing(true);
-              }}
+            <button
+              type="button"
+              onClick={() => setDoor("choose")}
+              className="relative z-10 cursor-pointer text-center text-sm font-semibold text-burgundy underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
             >
-              {customerCopy.browseMenu}
-            </ActionButton>
+              {customerCopy.backToChoices}
+            </button>
           ) : null}
           {menuProblem ? (
             <p role="alert" className="text-center text-sm font-medium text-burgundy">
@@ -396,7 +415,99 @@ export function RestaurantEntry({ slug }) {
   );
 }
 
-function Screen({ children, align = "center" }) {
+function ChoiceDoor({ onTrack, onMenu }) {
+  const reduce = useReducedMotion();
+  const options = [
+    {
+      title: customerCopy.chooseTrack,
+      hint: customerCopy.chooseTrackHint,
+      onClick: onTrack,
+      icon: (
+        <img src="/choice-track-mark.jpg" alt="" className="size-11 rounded-full object-cover" />
+      ),
+    },
+    {
+      title: customerCopy.chooseMenu,
+      hint: customerCopy.chooseMenuHint,
+      onClick: onMenu,
+      icon: (
+        <img src="/choice-menu-mark.png" alt="" className="size-11 rounded-full object-cover" />
+      ),
+    },
+  ];
+
+  return (
+    <div className="relative flex min-h-dvh flex-col bg-[#f6efe6]">
+      <div className="relative h-[40vh] min-h-[15.5rem] max-h-[23rem] overflow-hidden">
+        <img src="/choice-dining.png" alt="" className="absolute inset-0 size-full object-cover object-[center_36%]" />
+        <div
+          className="absolute inset-0"
+          style={{
+            background:
+              "linear-gradient(to bottom, rgba(246,239,230,0) 0%, rgba(246,239,230,0) 62%, rgba(246,239,230,0.35) 84%, #f6efe6 100%)",
+          }}
+          aria-hidden="true"
+        />
+      </div>
+
+      <div className="relative z-10 mx-auto -mt-9 flex w-full max-w-md flex-1 flex-col items-center px-5 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
+        <span className="grid size-[4.25rem] place-items-center rounded-full bg-[#f6efe6] shadow-[0_12px_30px_-16px_rgba(74,4,24,0.5)]">
+          <img src="/choice-cloche.png" alt="" className="block size-[2.85rem] object-contain object-center" />
+        </span>
+        <h1 className="mt-5 text-center font-display text-[1.7rem] leading-snug font-bold text-[#6e1228]">
+          {customerCopy.chooseWelcome}
+        </h1>
+        <p className="mt-2 text-center text-sm text-[#8a3048]">{customerCopy.choosePrompt}</p>
+
+        <div className="mt-7 flex w-full flex-col gap-3.5">
+          {options.map((option, index) => (
+            <motion.button
+              key={option.title}
+              type="button"
+              onClick={option.onClick}
+              initial={reduce ? false : { y: 10 }}
+              animate={{ y: 0 }}
+              transition={{ duration: 0.35, delay: index * 0.06, ease: "easeOut" }}
+              whileTap={reduce ? undefined : { scale: 0.99 }}
+              className="flex w-full cursor-pointer items-center gap-3 rounded-full border border-[#e4cf9a] bg-[#f6efe6] px-4 py-3.5 text-start shadow-[0_14px_30px_-22px_rgba(74,4,24,0.45)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
+            >
+              <span className="grid size-11 shrink-0 place-items-center text-[#7a1830]">{option.icon}</span>
+              <span className="h-9 w-px shrink-0 bg-[#eadfd4]" aria-hidden="true" />
+              <span className="min-w-0 flex-1">
+                <span className="block font-detail text-lg font-bold text-[#6e1228]">{option.title}</span>
+                <span className="mt-0.5 block text-xs text-[#a56a78]">{option.hint}</span>
+              </span>
+              <span className="grid size-8 shrink-0 place-items-center rounded-full bg-burgundy text-ivory">
+                <svg viewBox="0 0 24 24" className="size-4 rtl:-scale-x-100" aria-hidden="true" fill="none">
+                  <path d="M9 6l6 6-6 6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </span>
+            </motion.button>
+          ))}
+        </div>
+
+        <div dir="ltr" className="mt-auto flex flex-col items-center pt-12 text-[#7a1830]">
+          <div className="flex items-center gap-3">
+            <span className="h-px w-8 bg-gold" aria-hidden="true" />
+            <svg viewBox="0 0 24 24" className="size-7" fill="none" aria-hidden="true">
+              <path d="M12 4.2a4.2 4.2 0 0 0-4.2 4.2v2.1c0 .7-.3 1.4-.8 1.9L6 14h12l-1-1.6c-.5-.5-.8-1.2-.8-1.9V8.4A4.2 4.2 0 0 0 12 4.2Z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
+              <path d="M10 14.2a2 2 0 0 0 4 0" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+            </svg>
+            <span className="h-px w-8 bg-gold" aria-hidden="true" />
+          </div>
+          <p className="mt-2 font-detail text-[0.68rem] font-semibold tracking-[0.38em]">NADEENI</p>
+          <p className="mt-1 font-detail text-[0.58rem] font-medium tracking-[0.16em] text-[#8a3048]">SMARTER RESTAURANT EXPERIENCE</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Screen({ children, align = "center", bare = false }) {
+  if (bare) {
+    return <main className="min-h-dvh bg-[#f6efe6] [overflow-anchor:none]">{children}</main>;
+  }
+
   return (
     <main className={`flex min-h-dvh flex-col bg-ivory px-4 pb-[max(1rem,env(safe-area-inset-bottom))] [overflow-anchor:none] sm:px-8 lg:px-12 ${align === "start" ? "overflow-x-visible pt-[max(0.75rem,env(safe-area-inset-top))]" : "overflow-x-clip pt-[max(2rem,env(safe-area-inset-top))]"}`}>
       <div className={`${align === "start" ? "" : "my-auto"} w-full max-w-5xl self-center`}>{children}</div>

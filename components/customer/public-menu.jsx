@@ -47,9 +47,9 @@ function RoundPhoto({ src, label, className, fit = "cover" }) {
   );
 }
 
-function BackIcon() {
+function BackIcon({ className = "" }) {
   return (
-    <svg viewBox="0 0 24 24" className="size-4" fill="none" aria-hidden="true" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+    <svg viewBox="0 0 24 24" className={`size-4 ${className}`} fill="none" aria-hidden="true" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
       <path d="m9 6 6 6-6 6" />
     </svg>
   );
@@ -156,10 +156,47 @@ function foldText(value) {
     .replace(/\s+/g, " ");
 }
 
-function boardTitle(board) {
-  if (board === "offer") return customerCopy.menuOffers;
-  if (board === "new") return customerCopy.menuNew;
-  return customerCopy.menuHeading;
+const menuEnglish = {
+  menuHeading: "Menu",
+  menuSearch: "Search",
+  menuGrid: "Grid",
+  menuList: "List",
+  menuEmpty: "No items on the menu right now.",
+  menuLoading: "Loading the menu.",
+  menuNoMatch: "No items match the search.",
+  menuCategories: "Categories",
+  menuPick: "Choose a menu",
+  menuMain: "Main menu",
+  menuNew: "New items",
+  menuOffers: "Offers",
+  menuNewEmpty: "No new items right now.",
+  menuOffersEmpty: "No offers right now.",
+  badgeNew: "New",
+  badgeOffer: "Offer",
+  menuClose: "Close",
+  menuPriceLabel: "Price",
+  menuSuggested: "Suggestions",
+  backToNumber: "Back",
+  currency: "SYP",
+};
+
+function phrase(key, lang) {
+  if (lang === "en" && menuEnglish[key]) return menuEnglish[key];
+  if (key === "currency") return "ل.س";
+  return customerCopy[key];
+}
+
+function localized(field, lang) {
+  const arabic = field?.ar || "";
+  const english = field?.en || "";
+  if (lang === "en") return english || arabic;
+  return arabic || english;
+}
+
+function boardTitle(board, lang) {
+  if (board === "offer") return phrase("menuOffers", lang);
+  if (board === "new") return phrase("menuNew", lang);
+  return phrase("menuHeading", lang);
 }
 
 function categoriesForBoard(categories, board) {
@@ -170,7 +207,7 @@ function categoriesForBoard(categories, board) {
   });
 }
 
-function ItemBadge({ badge }) {
+function ItemBadge({ badge, lang }) {
   if (badge !== "new" && badge !== "offer") return null;
   const offer = badge === "offer";
   return (
@@ -179,7 +216,7 @@ function ItemBadge({ badge }) {
         offer ? "bg-[#f7f1e4] text-gold-deep ring-1 ring-gold/60" : "bg-burgundy text-ivory"
       }`}
     >
-      {offer ? customerCopy.badgeOffer : customerCopy.badgeNew}
+      {offer ? phrase("badgeOffer", lang) : phrase("badgeNew", lang)}
     </span>
   );
 }
@@ -188,10 +225,12 @@ function visibleCategories(categories, query) {
   const needle = foldText(query);
   return categories.flatMap((category, sourceIndex) => {
     if (!needle) return [{ ...category, sourceIndex }];
-    const categoryHit = foldText(category.name.ar).includes(needle);
+    const categoryHit = foldText(`${category.name.ar} ${category.name.en || ""}`).includes(needle);
     const items = categoryHit
       ? category.items
-      : category.items.filter((item) => foldText(`${item.name.ar} ${item.description.ar || ""}`).includes(needle));
+      : category.items.filter((item) =>
+          foldText(`${item.name.ar} ${item.name.en || ""} ${item.description.ar || ""} ${item.description.en || ""}`).includes(needle),
+        );
     if (items.length === 0) return [];
     return [{ ...category, items, sourceIndex }];
   });
@@ -208,11 +247,13 @@ function menuCards(groups) {
   );
 }
 
-function ItemDialog({ item, related, restaurantName, iconUrl, onOpen, onClose }) {
+function ItemDialog({ item, related, restaurantName, iconUrl, onOpen, onClose, lang }) {
   const reduceMotion = useReducedMotion();
   const bodyRef = useRef(null);
   const price = item.price === null ? "" : formatPrice(item.price);
-  const description = item.description.ar && item.description.ar.trim() !== item.name.ar.trim() ? item.description.ar : "";
+  const itemName = localized(item.name, lang);
+  const descriptionText = localized(item.description, lang);
+  const description = descriptionText && descriptionText.trim() !== itemName.trim() ? descriptionText : "";
 
   useEffect(() => {
     bodyRef.current?.parentElement?.scrollTo(0, 0);
@@ -220,12 +261,12 @@ function ItemDialog({ item, related, restaurantName, iconUrl, onOpen, onClose })
 
   return (
     <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
-      <DialogContent page hideClose closeLabel={customerCopy.menuClose} className="gap-0 bg-white p-0 font-detail">
+      <DialogContent page hideClose closeLabel={phrase("menuClose", lang)} dir={lang === "en" ? "ltr" : "rtl"} className="gap-0 bg-white p-0 font-detail">
         <header className="sticky top-0 z-10 flex items-center gap-2 border-b border-black/5 bg-white px-2 py-2">
           <button
             type="button"
             onClick={onClose}
-            aria-label={customerCopy.menuClose}
+            aria-label={phrase("menuClose", lang)}
             className="inline-flex size-10 shrink-0 cursor-pointer items-center justify-center rounded-full text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
           >
             <BackIcon />
@@ -243,37 +284,37 @@ function ItemDialog({ item, related, restaurantName, iconUrl, onOpen, onClose })
           transition={{ duration: reduceMotion ? 0 : 0.2 }}
         >
           <div className="relative bg-[#f3f1ec]">
-            <RoundPhoto src={item.photoUrl} label={item.name.ar} className="aspect-[4/3] w-full text-5xl" />
-            <ItemBadge badge={item.badge} />
+            <RoundPhoto src={item.photoUrl} label={itemName} className="aspect-[4/3] w-full text-5xl" />
+            <ItemBadge badge={item.badge} lang={lang} />
           </div>
           <div className="relative -mt-6 rounded-t-3xl bg-white px-5 pt-6 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
             <DialogHeader className="items-stretch gap-3 text-start">
               <DialogTitle className="text-start font-detail text-[1.85rem] leading-10 font-bold text-burgundy-deep">
-                {item.name.ar}
+                {itemName}
               </DialogTitle>
               <span aria-hidden="true" className="block h-1 w-12 rounded-full bg-gold" />
               <DialogDescription className={description ? "flex items-start gap-1.5 text-start text-sm leading-7 text-ink/55" : "sr-only"}>
                 {description ? <Article size={16} weight="regular" className="mt-0.5 shrink-0 text-gold" aria-hidden="true" /> : null}
-                <span className="min-w-0 whitespace-pre-line">{description || item.name.ar}</span>
+                <span className="min-w-0 whitespace-pre-line">{description || itemName}</span>
               </DialogDescription>
             </DialogHeader>
             <div className="mt-6">
               <p className="flex items-center gap-1.5 text-sm font-medium text-ink/50">
                 <Tag size={16} weight="regular" className="shrink-0 text-gold" aria-hidden="true" />
-                {customerCopy.menuPriceLabel}
+                {phrase("menuPriceLabel", lang)}
               </p>
               {price ? (
                 <p className="mt-2 inline-flex items-baseline gap-1.5 rounded-2xl border border-gold bg-white px-3.5 py-1.5">
                   <span dir="ltr" translate="no" className="font-detail text-3xl font-bold text-burgundy">
                     {price}
                   </span>
-                  <span className="text-base font-semibold text-burgundy/60">ل.س</span>
+                  <span className="text-base font-semibold text-burgundy/60">{phrase("currency", lang)}</span>
                 </p>
               ) : null}
             </div>
             {related.length > 0 ? (
               <div className="mt-8 border-t border-black/10 pt-6">
-                <h3 className="text-base font-bold text-ink">{customerCopy.menuSuggested}</h3>
+                <h3 className="text-base font-bold text-ink">{phrase("menuSuggested", lang)}</h3>
                 <ul className="mt-3 -mx-5 flex gap-3 overflow-x-auto px-5 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                   {related.map((other) => {
                     const otherPrice = other.price === null ? "" : formatPrice(other.price);
@@ -284,14 +325,14 @@ function ItemDialog({ item, related, restaurantName, iconUrl, onOpen, onClose })
                           onClick={() => onOpen(other)}
                           className="flex w-full cursor-pointer flex-col items-center rounded-2xl border border-burgundy/15 bg-white p-1.5 text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
                         >
-                          <RoundPhoto src={other.photoUrl} label={other.name.ar} className="aspect-square w-full rounded-2xl text-2xl" />
-                          <span className="mt-2 line-clamp-2 w-full px-1 text-center text-sm font-semibold text-ink">{other.name.ar}</span>
+                          <RoundPhoto src={other.photoUrl} label={localized(other.name, lang)} className="aspect-square w-full rounded-2xl text-2xl" />
+                          <span className="mt-2 line-clamp-2 w-full px-1 text-center text-sm font-semibold text-ink">{localized(other.name, lang)}</span>
                           {otherPrice ? (
                             <span className="mt-2 flex w-full items-baseline justify-center gap-1 border-t border-black/10 pt-1.5">
                               <span dir="ltr" translate="no" className="font-detail text-sm font-bold text-burgundy">
                                 {otherPrice}
                               </span>
-                              <span className="text-[11px] font-semibold text-ink/45">ل.س</span>
+                              <span className="text-[11px] font-semibold text-ink/45">{phrase("currency", lang)}</span>
                             </span>
                           ) : null}
                         </button>
@@ -309,12 +350,12 @@ function ItemDialog({ item, related, restaurantName, iconUrl, onOpen, onClose })
 }
 
 const menuBoards = [
-  { id: "offer", label: customerCopy.menuOffers },
-  { id: "new", label: customerCopy.menuNew },
-  { id: "main", label: customerCopy.menuMain },
+  { id: "offer", key: "menuOffers" },
+  { id: "new", key: "menuNew" },
+  { id: "main", key: "menuMain" },
 ];
 
-function MenuBoardSheet({ board, onChoose, onClose }) {
+function MenuBoardSheet({ board, onChoose, onClose, lang }) {
   const dialogRef = useRef(null);
   const reduceMotion = useReducedMotion();
 
@@ -347,12 +388,12 @@ function MenuBoardSheet({ board, onChoose, onClose }) {
       >
         <div className="flex items-center justify-between gap-3">
           <h2 id="menu-board-title" className="font-detail text-2xl font-bold text-ink">
-            {customerCopy.menuPick}
+            {phrase("menuPick", lang)}
           </h2>
           <button
             type="button"
             onClick={onClose}
-            aria-label={customerCopy.menuClose}
+            aria-label={phrase("menuClose", lang)}
             className="inline-flex size-10 cursor-pointer items-center justify-center rounded-full text-ink/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
           >
             <CloseIcon />
@@ -371,7 +412,7 @@ function MenuBoardSheet({ board, onChoose, onClose }) {
                   selected ? "bg-[#f3f1ec] text-ink" : "text-ink/75"
                 }`}
               >
-                {option.label}
+                {phrase(option.key, lang)}
               </button>
             );
           })}
@@ -381,7 +422,7 @@ function MenuBoardSheet({ board, onChoose, onClose }) {
   );
 }
 
-function CategoryFilterSheet({ categories, active, onChoose, onClose }) {
+function CategoryFilterSheet({ categories, active, onChoose, onClose, lang }) {
   const dialogRef = useRef(null);
   const reduceMotion = useReducedMotion();
 
@@ -414,12 +455,12 @@ function CategoryFilterSheet({ categories, active, onChoose, onClose }) {
       >
         <div className="flex items-center justify-between gap-3 border-b border-black/10 px-4 pt-4 pb-3">
           <h2 id="menu-categories-title" className="text-lg font-bold text-ink">
-            {customerCopy.menuCategories}
+            {phrase("menuCategories", lang)}
           </h2>
           <button
             type="button"
             onClick={onClose}
-            aria-label={customerCopy.menuClose}
+            aria-label={phrase("menuClose", lang)}
             className="inline-flex size-10 cursor-pointer items-center justify-center rounded-full text-ink/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
           >
             <CloseIcon />
@@ -440,7 +481,7 @@ function CategoryFilterSheet({ categories, active, onChoose, onClose }) {
                     }`}
                   >
                     <span className="flex items-center justify-between gap-3">
-                      <span className={`min-w-0 ${selected ? "font-semibold text-ink" : "text-ink/80"}`}>{item.name.ar}</span>
+                      <span className={`min-w-0 ${selected ? "font-semibold text-ink" : "text-ink/80"}`}>{localized(item.name, lang)}</span>
                       <span
                         dir="ltr"
                         translate="no"
@@ -460,12 +501,12 @@ function CategoryFilterSheet({ categories, active, onChoose, onClose }) {
   );
 }
 
-function LayoutSwitch({ layout, onChange }) {
+function LayoutSwitch({ layout, onChange, lang }) {
   return (
     <div className="flex w-max shrink-0 items-center rounded-lg border border-black/10 bg-white sm:hidden">
       {[
-        ["grid", customerCopy.menuGrid, <GridIcon key="grid" />],
-        ["list", customerCopy.menuList, <ListIcon key="list" />],
+        ["grid", phrase("menuGrid", lang), <GridIcon key="grid" />],
+        ["list", phrase("menuList", lang), <ListIcon key="list" />],
       ].map(([id, label, icon]) => {
         const selected = layout === id;
         return (
@@ -496,11 +537,11 @@ function pillClass(selected) {
   }`;
 }
 
-function CategoryStrip({ categories, active, onChoose, stripRef }) {
+function CategoryStrip({ categories, active, onChoose, stripRef, lang }) {
   return (
     <nav
       ref={stripRef}
-      aria-label={customerCopy.menuHeading}
+      aria-label={phrase("menuHeading", lang)}
       className="flex min-w-0 gap-2 overflow-x-auto scroll-smooth py-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
     >
       {categories.map((item) => {
@@ -514,7 +555,7 @@ function CategoryStrip({ categories, active, onChoose, stripRef }) {
             onClick={() => onChoose(item.sourceIndex)}
             className={pillClass(isSelected)}
           >
-            {item.name.ar}
+            {localized(item.name, lang)}
           </button>
         );
       })}
@@ -522,37 +563,34 @@ function CategoryStrip({ categories, active, onChoose, stripRef }) {
   );
 }
 
-function MenuItemCard({ item, layout, onOpen }) {
+function MenuItemCard({ item, layout, onOpen, lang }) {
   const price = item.price === null ? "" : formatPrice(item.price);
+  const itemName = localized(item.name, lang);
+  const descriptionText = localized(item.description, lang);
+  const description = descriptionText && descriptionText.trim() !== itemName.trim() ? descriptionText : "";
   return (
     <li>
       {layout === "list" ? (
         <button
           type="button"
           onClick={() => onOpen(item)}
-          className="flex w-full cursor-pointer flex-row items-stretch gap-3 rounded-2xl bg-white px-3 py-3 text-start shadow-[0_10px_30px_rgba(42,16,22,0.08)] ring-1 ring-black/[0.04] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold active:scale-[0.99] sm:hidden"
+          dir={lang === "en" ? "ltr" : "rtl"}
+          className="flex w-full cursor-pointer items-center gap-3 rounded-2xl bg-white px-3 py-3 text-start shadow-[0_10px_30px_rgba(42,16,22,0.08)] ring-1 ring-black/[0.04] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold active:scale-[0.99] sm:hidden"
         >
-          <span className="relative size-32 shrink-0 overflow-hidden rounded-2xl">
-            <RoundPhoto src={item.photoUrl} label={item.name.ar} className="size-full text-3xl" />
-            <ItemBadge badge={item.badge} />
-          </span>
-          <span className="flex min-w-0 flex-1 flex-col justify-between gap-2 py-0.5">
-            <span className="min-w-0">
-              <span className="line-clamp-2 font-detail text-base leading-tight font-bold text-ink">{item.name.ar}</span>
-              {item.description.ar ? (
-                <span className="mt-1 line-clamp-3 block text-sm leading-snug whitespace-pre-line text-ink/50">
-                  {item.description.ar}
-                </span>
-              ) : null}
-            </span>
+          <span dir={lang === "en" ? "ltr" : "rtl"} className="flex min-w-0 flex-1 flex-col items-start gap-1.5">
+            <span className="line-clamp-2 font-detail text-lg leading-tight font-bold text-burgundy">{itemName}</span>
+            {description ? (
+              <span className="line-clamp-2 text-sm leading-snug text-ink/50">{description}</span>
+            ) : null}
             {price ? (
-              <span className="flex items-baseline gap-1">
-                <span dir="ltr" translate="no" className="font-detail text-base font-bold text-burgundy">
-                  {price}
-                </span>
-                <span className="text-xs font-semibold text-ink/45">ل.س</span>
+              <span dir="ltr" translate="no" className="text-sm font-semibold text-ink/70">
+                {phrase("currency", lang)} {price}
               </span>
             ) : null}
+          </span>
+          <span className="relative size-24 shrink-0 overflow-hidden rounded-2xl">
+            <RoundPhoto src={item.photoUrl} label={itemName} className="size-full text-2xl" />
+            <ItemBadge badge={item.badge} lang={lang} />
           </span>
         </button>
       ) : null}
@@ -562,17 +600,17 @@ function MenuItemCard({ item, layout, onOpen }) {
         className={`${layout === "list" ? "hidden sm:flex" : "flex"} h-full w-full cursor-pointer flex-col rounded-[1.35rem] bg-white p-2 text-start shadow-[0_14px_32px_-20px_rgba(42,16,22,0.4)] ring-1 ring-black/[0.04] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold active:scale-[0.99]`}
       >
         <span className="relative block overflow-hidden rounded-[1.05rem]">
-          <RoundPhoto src={item.photoUrl} label={item.name.ar} className="aspect-[5/4] w-full text-3xl" />
-          <ItemBadge badge={item.badge} />
+          <RoundPhoto src={item.photoUrl} label={localized(item.name, lang)} className="aspect-[5/4] w-full text-3xl" />
+          <ItemBadge badge={item.badge} lang={lang} />
         </span>
         <span className="flex flex-1 flex-col items-center px-1.5 pt-3 pb-1.5 text-center">
-          <span className="line-clamp-2 w-full text-center font-detail text-[15px] leading-6 font-semibold text-ink">{item.name.ar}</span>
+          <span className="line-clamp-2 w-full text-center font-detail text-[15px] leading-6 font-semibold text-ink">{localized(item.name, lang)}</span>
           {price ? (
             <span className="mt-3 flex w-full items-baseline justify-center gap-1.5 border-t border-black/[0.06] pt-2">
               <span dir="ltr" translate="no" className="font-detail text-sm font-bold text-burgundy">
                 {price}
               </span>
-              <span className="text-[11px] font-semibold text-ink/45">ل.س</span>
+              <span className="text-[11px] font-semibold text-ink/45">{phrase("currency", lang)}</span>
             </span>
           ) : null}
         </span>
@@ -590,6 +628,7 @@ export function PublicMenu({ name, iconUrl, contact = null, banners = [], catego
   const [layout, setLayout] = useState("list");
   const [query, setQuery] = useState("");
   const [detail, setDetail] = useState(null);
+  const [lang, setLang] = useState("en");
   const boarded = categoriesForBoard(categories, board);
   const visible = visibleCategories(boarded, query);
   const cards = menuCards(visible);
@@ -602,7 +641,7 @@ export function PublicMenu({ name, iconUrl, contact = null, banners = [], catego
   const pauseSpy = useRef(false);
   const pauseToken = useRef(0);
   const readSpy = useRef(() => {});
-  const title = boardTitle(board);
+  const title = boardTitle(board, lang);
   const sectionKey = visible.map((item) => `${item.sourceIndex}:${item.items.length}`).join("|");
   const itemGridClass =
     layout === "list"
@@ -737,31 +776,49 @@ export function PublicMenu({ name, iconUrl, contact = null, banners = [], catego
   const showStrip = visible.length > 0;
   const emptyMessage =
     categories.length === 0
-      ? customerCopy.menuEmpty
+      ? phrase("menuEmpty", lang)
       : boarded.length === 0 && board === "offer"
-        ? customerCopy.menuOffersEmpty
+        ? phrase("menuOffersEmpty", lang)
         : boarded.length === 0 && board === "new"
-          ? customerCopy.menuNewEmpty
-          : customerCopy.menuNoMatch;
+          ? phrase("menuNewEmpty", lang)
+          : phrase("menuNoMatch", lang);
 
   return (
-    <div ref={menuRef} className="flex w-full flex-col font-detail [overflow-anchor:none]">
+    <div ref={menuRef} dir={lang === "en" ? "ltr" : "rtl"} className="flex w-full flex-col font-detail [overflow-anchor:none]">
       <div ref={barRef} className="sticky top-0 z-30 -mx-4 bg-ivory/95 px-4 backdrop-blur-md sm:-mx-8 sm:px-8 lg:-mx-12 lg:px-12">
         <div className="flex min-w-0 items-center gap-3 py-3">
           {onBack ? (
             <button
               type="button"
               onClick={leave}
-              aria-label={customerCopy.backToNumber}
+              aria-label={phrase("backToNumber", lang)}
               className="inline-flex size-10 shrink-0 cursor-pointer items-center justify-center rounded-full text-ink/70 transition hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
             >
-              <BackIcon />
+              <BackIcon className={lang === "en" ? "-scale-x-100" : ""} />
             </button>
           ) : null}
           {iconUrl ? (
             <img src={iconUrl} alt="" className="size-10 shrink-0 rounded-full bg-[#f3e6c8] object-cover ring-1 ring-black/5 sm:size-12 md:size-14" />
           ) : null}
-          {name ? <h1 className="min-w-0 truncate text-sm font-semibold text-ink sm:text-base md:text-lg">{name}</h1> : null}
+          {name ? <h1 className="min-w-0 flex-1 truncate text-sm font-semibold text-ink sm:text-base md:text-lg">{name}</h1> : <span className="flex-1" />}
+          <div role="group" aria-label={lang === "en" ? "Language" : "اللغة"} className="ms-auto flex shrink-0 rounded-full bg-white p-1 ring-1 ring-burgundy/15">
+            <button
+              type="button"
+              aria-pressed={lang === "en"}
+              onClick={() => setLang("en")}
+              className={`cursor-pointer rounded-full px-3 py-1 text-xs font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold ${lang === "en" ? "bg-burgundy text-ivory" : "text-burgundy"}`}
+            >
+              EN
+            </button>
+            <button
+              type="button"
+              aria-pressed={lang === "ar"}
+              onClick={() => setLang("ar")}
+              className={`cursor-pointer rounded-full px-3 py-1 text-xs font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold ${lang === "ar" ? "bg-burgundy text-ivory" : "text-burgundy"}`}
+            >
+              AR
+            </button>
+          </div>
           {/* <RestaurantContact contact={contact} icons /> */}
         </div>
 
@@ -773,8 +830,8 @@ export function PublicMenu({ name, iconUrl, contact = null, banners = [], catego
                 type="search"
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
-                placeholder={customerCopy.menuSearch}
-                aria-label={customerCopy.menuSearch}
+                placeholder={phrase("menuSearch", lang)}
+                aria-label={phrase("menuSearch", lang)}
                 enterKeyHint="search"
                 autoComplete="off"
                 className="h-11 w-full rounded-full border border-black/10 bg-white ps-11 pe-4 text-sm text-ink outline-none placeholder:text-ink/35 focus:ring-2 focus:ring-gold"
@@ -782,9 +839,9 @@ export function PublicMenu({ name, iconUrl, contact = null, banners = [], catego
             </div>
             <button
               type="button"
-              aria-label={customerCopy.menuCategories}
+              aria-label={phrase("menuCategories", lang)}
               aria-expanded={filtersOpen}
-              title={customerCopy.menuCategories}
+              title={phrase("menuCategories", lang)}
               disabled={!showStrip}
               onClick={() => {
                 setPickerOpen(false);
@@ -811,9 +868,9 @@ export function PublicMenu({ name, iconUrl, contact = null, banners = [], catego
           <div className="flex min-w-0 items-center">
             <button
               type="button"
-              aria-label={customerCopy.menuPick}
+              aria-label={phrase("menuPick", lang)}
               aria-expanded={pickerOpen}
-              title={customerCopy.menuPick}
+              title={phrase("menuPick", lang)}
               onClick={() => {
                 setFiltersOpen(false);
                 setPickerOpen(true);
@@ -823,14 +880,14 @@ export function PublicMenu({ name, iconUrl, contact = null, banners = [], catego
               <BarsIcon />
             </button>
             <div className="min-w-0 flex-1">
-              <CategoryStrip categories={visible} active={shown} onChoose={chooseCategory} stripRef={stripRef} />
+              <CategoryStrip categories={visible} active={shown} onChoose={chooseCategory} stripRef={stripRef} lang={lang} />
             </div>
           </div>
         </div>
       ) : null}
 
       {loading ? (
-        <p className="mt-16 text-center text-base font-semibold text-burgundy-deep">{customerCopy.menuLoading}</p>
+        <p className="mt-16 text-center text-base font-semibold text-burgundy-deep">{phrase("menuLoading", lang)}</p>
       ) : cards.length > 0 ? (
         <div ref={sheetRef} className="mt-4 sm:mt-6">
           {board !== "main" ? (
@@ -846,15 +903,15 @@ export function PublicMenu({ name, iconUrl, contact = null, banners = [], catego
               >
                 <div className="mb-3.5 flex items-center justify-between gap-3">
                   <h2 id={`menu-category-${group.sourceIndex}`} className="min-w-0 truncate font-detail text-[1.35rem] leading-8 font-bold text-ink">
-                    {group.name.ar}
+                    {localized(group.name, lang)}
                   </h2>
-                  {groupIndex === 0 ? <LayoutSwitch layout={layout} onChange={setLayout} /> : null}
+                  {groupIndex === 0 ? <LayoutSwitch layout={layout} onChange={setLayout} lang={lang} /> : null}
                 </div>
                 <ul className={itemGridClass}>
                   {cards
                     .filter((item) => item.sourceIndex === group.sourceIndex)
                     .map((item) => (
-                      <MenuItemCard key={item.key} item={item} layout={layout} onOpen={setDetail} />
+                      <MenuItemCard key={item.key} item={item} layout={layout} onOpen={setDetail} lang={lang} />
                     ))}
                 </ul>
               </section>
@@ -872,11 +929,12 @@ export function PublicMenu({ name, iconUrl, contact = null, banners = [], catego
         </section>
       )}
 
-      {pickerOpen ? <MenuBoardSheet board={board} onChoose={chooseBoard} onClose={() => setPickerOpen(false)} /> : null}
+      {pickerOpen ? <MenuBoardSheet board={board} lang={lang} onChoose={chooseBoard} onClose={() => setPickerOpen(false)} /> : null}
       {filtersOpen ? (
         <CategoryFilterSheet
           categories={visible}
           active={shown}
+          lang={lang}
           onChoose={chooseCategory}
           onClose={() => setFiltersOpen(false)}
         />
@@ -887,6 +945,7 @@ export function PublicMenu({ name, iconUrl, contact = null, banners = [], catego
           related={cards.filter((card) => card.key !== detail.key && card.sourceIndex === detail.sourceIndex).slice(0, 8)}
           restaurantName={name}
           iconUrl={iconUrl}
+          lang={lang}
           onOpen={setDetail}
           onClose={() => setDetail(null)}
         />
