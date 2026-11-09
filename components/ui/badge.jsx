@@ -6,8 +6,8 @@ const badgeVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-burgundy text-ivory",
-        secondary: "bg-[#f7f1e4] text-gold-deep ring-1 ring-gold/50",
+        default: "bg-burgundy text-on-primary",
+        secondary: "bg-wash text-gold-deep ring-1 ring-gold/50",
       },
     },
     defaultVariants: {

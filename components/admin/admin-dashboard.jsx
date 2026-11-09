@@ -25,7 +25,7 @@ function HeaderButton({ children, onClick }) {
 
 function tabClass(active) {
   return `inline-flex h-11 cursor-pointer items-center justify-center rounded-2xl px-4 text-sm font-semibold ${
-    active ? "bg-burgundy text-ivory" : "bg-white text-burgundy-deep ring-1 ring-burgundy/15"
+    active ? "bg-burgundy text-on-primary" : "bg-white text-burgundy-deep ring-1 ring-burgundy/15"
   }`;
 }
 

@@ -224,8 +224,8 @@ function OrderCard({
                 <span className="font-display text-lg leading-none">{primary.label}</span>
                 {primary.hint ? (
                   <span className="hidden items-center gap-2 @min-[16rem]:inline-flex">
-                    <span aria-hidden="true" className="h-3.5 w-px bg-ivory/35" />
-                    <span className="text-[0.8rem] font-medium text-ivory/85">
+                    <span aria-hidden="true" className="h-3.5 w-px bg-on-primary/35" />
+                    <span className="text-[0.8rem] font-medium text-on-primary/85">
                       {primary.hint}
                     </span>
                   </span>
@@ -335,7 +335,7 @@ export function OrderLane({
     : "bg-foam text-burgundy ring-burgundy/10";
   const chipLabel = ready ? "جاهز" : "يُحضَّر";
   const sectionClass = ready
-    ? "bg-[#f7f1e4] ring-gold/30"
+    ? "bg-wash ring-gold/30"
     : "bg-white/75 ring-burgundy/10";
 
   return (

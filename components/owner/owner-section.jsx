@@ -49,7 +49,7 @@ export function StatTile({ label, value, detail, accent = "burgundy", reserveDet
           {numeric ? <p className="text-3xl leading-none sm:text-4xl">{value}</p> : value}
         </div>
         {detail ? (
-          <p className="mt-2 inline-flex rounded-full bg-[#f7f1e4] px-2.5 py-0.5 text-xs font-semibold text-gold-deep ring-1 ring-gold/25">
+          <p className="mt-2 inline-flex rounded-full bg-wash px-2.5 py-0.5 text-xs font-semibold text-gold-deep ring-1 ring-gold/25">
             {detail}
           </p>
         ) : reserveDetail ? (

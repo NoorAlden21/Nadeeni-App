@@ -12,6 +12,7 @@ import { RestaurantMenu } from "@/components/menu/restaurant-menu";
 import { ScreenSwitch } from "@/components/menu/screen-switch";
 import { qrTargetUrl } from "@/lib/qr/download";
 import { readFeatures } from "@/lib/features";
+import { useRestaurantTheme } from "@/components/theme/use-restaurant-theme";
 import { defaultRange, rangeError, statsErrorText } from "@/lib/owner/stats";
 
 const fieldClass =
@@ -45,6 +46,7 @@ export function OwnerDashboard({ token, user, onUnauthenticated, onInactive }) {
   const [menuOff, setMenuOff] = useState(false);
   const onUnauthenticatedRef = useRef(onUnauthenticated);
   const onInactiveRef = useRef(onInactive);
+  const theme = useRestaurantTheme(user?.restaurant);
   const menuOn = readFeatures(user.restaurant).menu && !menuOff;
   const screens = [
     { id: "stats", label: "الإحصاءات" },
@@ -176,7 +178,7 @@ export function OwnerDashboard({ token, user, onUnauthenticated, onInactive }) {
   }
 
   return (
-    <div className="min-h-dvh overflow-x-clip bg-[#fcfbfc]">
+    <div style={theme} className="min-h-dvh overflow-x-clip bg-[#fcfbfc]">
       <header className="sticky top-0 z-20 border-b border-burgundy/5 bg-white pt-[env(safe-area-inset-top)] shadow-sm">
         <div className="mx-auto flex min-h-16 w-full max-w-7xl items-center gap-4 px-4 py-3 sm:min-h-[5rem] sm:px-8">
           <BrandMark className="h-10 w-10 sm:h-12 sm:w-12" />
@@ -193,7 +195,7 @@ export function OwnerDashboard({ token, user, onUnauthenticated, onInactive }) {
               type="button"
               onClick={showSharedQr}
               disabled={!user.restaurant?.slug}
-              className="inline-flex h-10 cursor-pointer items-center justify-center rounded-xl bg-[#f7f1e4] px-4 text-sm font-semibold text-gold-deep shadow-sm ring-1 ring-inset ring-gold/30 transition duration-300 hover:bg-gold/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold disabled:pointer-events-none disabled:opacity-40"
+              className="inline-flex h-10 cursor-pointer items-center justify-center rounded-xl bg-wash px-4 text-sm font-semibold text-gold-deep shadow-sm ring-1 ring-inset ring-gold/30 transition duration-300 hover:bg-gold/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold disabled:pointer-events-none disabled:opacity-40"
             >
               رمز المطعم
             </button>

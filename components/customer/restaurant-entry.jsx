@@ -7,9 +7,11 @@ import { PoweredBy } from "@/components/brand/powered-by";
 import { ActionButton } from "@/components/cashier/action-button";
 import { PublicMenu } from "@/components/customer/public-menu";
 // import { RestaurantContact } from "@/components/customer/restaurant-contact";
-import { apiFetch, restaurantIconSrc } from "@/lib/api/client";
+import { apiFetch, menuAssetSrc, restaurantIconSrc } from "@/lib/api/client";
 import { readPublicMenu } from "@/lib/customer/public-menu";
 import { readFeatures } from "@/lib/features";
+import { rememberRestaurantTheme } from "@/lib/theme/restaurant-theme";
+import { useRestaurantTheme } from "@/components/theme/use-restaurant-theme";
 import {
   customerCopy,
   orderNumberProblem,
@@ -37,6 +39,8 @@ export function RestaurantEntry({ slug }) {
   const [door, setDoor] = useState("choose");
   const [savedOrder, setSavedOrder] = useState("");
   const [contact, setContact] = useState(null);
+  const [nameEn, setNameEn] = useState("");
+  const theme = useRestaurantTheme(contact);
 
   useEffect(() => {
     let stopped = false;
@@ -59,9 +63,11 @@ export function RestaurantEntry({ slug }) {
         if (stopped) return;
         const icon = restaurantIconSrc(restaurant?.icon_url);
         setName(restaurant?.name || "");
+        setNameEn(typeof restaurant?.name_en === "string" ? restaurant.name_en.trim() : "");
         setIconUrl(icon);
         setContact(restaurant);
         rememberRestaurantIcon(restaurant?.name, icon);
+        rememberRestaurantTheme(restaurant);
 
         const flags = readFeatures(restaurant);
         if (!flags.menu) {
@@ -166,7 +172,7 @@ export function RestaurantEntry({ slug }) {
 
   if (!loaded) {
     return (
-      <Screen>
+      <Screen theme={theme}>
         <p className="text-base font-medium text-burgundy-deep">{customerCopy.opening}</p>
       </Screen>
     );
@@ -174,7 +180,7 @@ export function RestaurantEntry({ slug }) {
 
   if (missing) {
     return (
-      <Screen>
+      <Screen theme={theme}>
         <p className="max-w-md text-center text-lg font-semibold leading-8 text-burgundy-deep">
           {customerCopy.restaurantMissing}
         </p>
@@ -184,7 +190,7 @@ export function RestaurantEntry({ slug }) {
 
   if (features.menu && !features.pager) {
     return (
-      <Screen align="start">
+      <Screen align="start" theme={theme}>
         {menuProblem ? (
           <p role="alert" className="text-center text-base font-medium text-burgundy-deep">
             {menuProblem}
@@ -192,6 +198,7 @@ export function RestaurantEntry({ slug }) {
         ) : (
           <PublicMenu
             name={name}
+            nameEn={nameEn}
             iconUrl={iconUrl}
             contact={contact}
             banners={menu.banners}
@@ -205,7 +212,7 @@ export function RestaurantEntry({ slug }) {
 
   if (!features.pager) {
     return (
-      <Screen>
+      <Screen theme={theme}>
         <div className="flex flex-col items-center text-center">
           <p className="text-xl font-extrabold text-gold-deep sm:text-2xl">أهلاً بك في مطعم</p>
           {name ? (
@@ -226,7 +233,7 @@ export function RestaurantEntry({ slug }) {
 
   if (browsing && features.menu) {
     return (
-      <Screen align="start">
+      <Screen align="start" theme={theme}>
         {menuProblem ? (
           <div className="flex flex-col items-center gap-4 text-center">
             <p role="alert" className="text-base font-medium text-burgundy-deep">{menuProblem}</p>
@@ -237,6 +244,7 @@ export function RestaurantEntry({ slug }) {
         ) : (
           <PublicMenu
             name={name}
+            nameEn={nameEn}
             iconUrl={iconUrl}
             contact={contact}
             banners={menu.banners}
@@ -256,8 +264,10 @@ export function RestaurantEntry({ slug }) {
 
   if (offerChoice) {
     return (
-      <Screen bare>
+      <Screen bare theme={theme}>
         <ChoiceDoor
+          iconUrl={iconUrl}
+          heroUrl={menuAssetSrc(menu.banners[0]?.imageUrl)}
           onTrack={() => setDoor("track")}
           onMenu={() => {
             setError("");
@@ -270,7 +280,7 @@ export function RestaurantEntry({ slug }) {
   }
 
   return (
-    <Screen>
+    <Screen theme={theme}>
       {error ? (
         <div className="pointer-events-none fixed inset-x-0 top-0 z-50 flex justify-center px-4 pt-[max(0.75rem,env(safe-area-inset-top))]">
           <p
@@ -319,7 +329,7 @@ export function RestaurantEntry({ slug }) {
 
               {/* الخطوة الثانية: إدخال الرقم (الحالية - مع أنيميشن) */}
               <div className="relative z-10 flex flex-col items-center gap-2">
-                <div className="relative flex h-10 w-10 items-center justify-center rounded-full bg-burgundy text-white">
+                <div className="relative flex h-10 w-10 items-center justify-center rounded-full bg-burgundy text-on-primary">
                   {/* تأثير النبض (Ping) */}
                   <div className="absolute inset-0 rounded-full border-2 border-burgundy opacity-75 animate-[ping_2s_cubic-bezier(0,0,0.2,1)_infinite]" />
                   <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
@@ -415,8 +425,21 @@ export function RestaurantEntry({ slug }) {
   );
 }
 
-function ChoiceDoor({ onTrack, onMenu }) {
+const choiceCanvas = "var(--choice-canvas, #f6efe6)";
+const choiceLine = "var(--choice-line, #e4cf9a)";
+
+function ChoiceDoor({ onTrack, onMenu, iconUrl = "", heroUrl = "" }) {
   const reduce = useReducedMotion();
+  const [mark, setMark] = useState(iconUrl);
+  const [hero, setHero] = useState(heroUrl);
+
+  useEffect(() => {
+    setMark(iconUrl);
+  }, [iconUrl]);
+
+  useEffect(() => {
+    setHero(heroUrl);
+  }, [heroUrl]);
   const options = [
     {
       title: customerCopy.chooseTrack,
@@ -435,21 +458,21 @@ function ChoiceDoor({ onTrack, onMenu }) {
   ];
 
   return (
-    <div className="relative flex min-h-dvh flex-col bg-[#f6efe6]">
+    <div className="relative flex min-h-dvh flex-col" style={{ backgroundColor: choiceCanvas }}>
       <div className="relative h-[40vh] min-h-[15.5rem] max-h-[23rem] overflow-hidden">
         <motion.img
-          src="/choice-dining.png"
+          src={hero || "/choice-dining.png"}
           alt=""
           className="absolute inset-0 size-full object-cover object-[center_36%]"
           initial={reduce ? false : { scale: 1.08, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           transition={{ duration: 0.9, ease: "easeOut" }}
+          onError={() => setHero("")}
         />
         <div
           className="absolute inset-0"
           style={{
-            background:
-              "linear-gradient(to bottom, rgba(246,239,230,0) 0%, rgba(246,239,230,0) 62%, rgba(246,239,230,0.35) 84%, #f6efe6 100%)",
+            background: `linear-gradient(to bottom, transparent 0%, transparent 62%, color-mix(in srgb, ${choiceCanvas} 35%, transparent) 84%, ${choiceCanvas} 100%)`,
           }}
           aria-hidden="true"
         />
@@ -457,15 +480,21 @@ function ChoiceDoor({ onTrack, onMenu }) {
 
       <div className="relative z-10 mx-auto -mt-9 flex w-full max-w-md flex-1 flex-col items-center px-5 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
         <motion.span
-          className="grid size-[4.25rem] place-items-center rounded-full bg-[#f6efe6] shadow-[0_12px_30px_-16px_rgba(74,4,24,0.5)]"
+          className={`grid size-[4.25rem] place-items-center overflow-hidden rounded-full shadow-[0_12px_30px_-16px_rgba(74,4,24,0.5)] ${mark ? "ring-2 ring-gold" : ""}`}
+          style={{ backgroundColor: choiceCanvas }}
           initial={reduce ? false : { scale: 0.6, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           transition={{ type: "spring", stiffness: 280, damping: 18, delay: 0.15 }}
         >
-          <img src="/choice-cloche.png" alt="" className="block size-[2.85rem] object-contain object-center" />
+          <img
+            src={mark || "/choice-cloche.png"}
+            alt=""
+            className={mark ? "size-full object-cover" : "block size-[2.85rem] object-contain object-center"}
+            onError={() => setMark("")}
+          />
         </motion.span>
         <motion.h1
-          className="mt-5 text-center font-display text-[1.7rem] leading-snug font-bold text-[#6e1228]"
+          className="mt-5 text-center font-display text-[1.7rem] leading-snug font-bold text-burgundy-deep"
           initial={reduce ? false : { y: 14, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ duration: 0.45, delay: 0.22, ease: "easeOut" }}
@@ -473,7 +502,7 @@ function ChoiceDoor({ onTrack, onMenu }) {
           {customerCopy.chooseWelcome}
         </motion.h1>
         <motion.p
-          className="mt-2 text-center text-sm text-[#8a3048]"
+          className="mt-2 text-center text-sm text-burgundy/75"
           initial={reduce ? false : { y: 10, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ duration: 0.4, delay: 0.32, ease: "easeOut" }}
@@ -491,14 +520,15 @@ function ChoiceDoor({ onTrack, onMenu }) {
               animate={{ y: 0, opacity: 1 }}
               transition={{ duration: 0.4, delay: 0.4 + index * 0.1, ease: "easeOut" }}
               whileTap={reduce ? undefined : { scale: 0.98 }}
-              className="flex w-full cursor-pointer items-center gap-3 rounded-full border border-[#e4cf9a] bg-[#f6efe6] px-4 py-3.5 text-start shadow-[0_14px_30px_-22px_rgba(74,4,24,0.45)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
+              className="flex w-full cursor-pointer items-center gap-3 rounded-full border px-4 py-3.5 text-start shadow-[0_14px_30px_-22px_rgba(74,4,24,0.45)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
+              style={{ backgroundColor: choiceCanvas, borderColor: choiceLine }}
             >
-              <span className="grid size-11 shrink-0 place-items-center text-[#7a1830]">{option.icon}</span>
-              <span className="h-9 w-px shrink-0 bg-[#eadfd4]" aria-hidden="true" />
+              <span className="grid size-11 shrink-0 place-items-center">{option.icon}</span>
+              <span className="h-9 w-px shrink-0 opacity-70" style={{ backgroundColor: choiceLine }} aria-hidden="true" />
               <span className="min-w-0 flex-1">
-                <span className="block font-detail text-lg font-bold text-[#6e1228]">{option.title}</span>
+                <span className="block font-detail text-lg font-bold text-burgundy-deep">{option.title}</span>
               </span>
-              <span className="grid size-8 shrink-0 place-items-center rounded-full bg-burgundy text-ivory">
+              <span className="grid size-8 shrink-0 place-items-center rounded-full bg-burgundy text-on-primary">
                 <svg viewBox="0 0 24 24" className="size-4 rtl:-scale-x-100" aria-hidden="true" fill="none">
                   <path d="M9 6l6 6-6 6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
@@ -509,7 +539,11 @@ function ChoiceDoor({ onTrack, onMenu }) {
 
         <motion.div
           dir="ltr"
-          className="mt-auto flex flex-col items-center pt-12 text-[#7a1830]"
+          className="mt-auto flex flex-col items-center pt-12 text-burgundy"
+          style={{
+            "--restaurant-primary": "#7e062a",
+            "--restaurant-secondary": "#cda649",
+          }}
           initial={reduce ? false : { opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.5, delay: 0.7 }}
@@ -523,20 +557,24 @@ function ChoiceDoor({ onTrack, onMenu }) {
             <span className="h-px w-8 bg-gold" aria-hidden="true" />
           </div>
           <p className="mt-2 font-detail text-[0.68rem] font-semibold tracking-[0.38em]">NADEENI</p>
-          <p className="mt-1 font-detail text-[0.58rem] font-medium tracking-[0.16em] text-[#8a3048]">SMARTER RESTAURANT EXPERIENCE</p>
+          <p className="mt-1 font-detail text-[0.58rem] font-medium tracking-[0.16em] text-burgundy/70">SMARTER RESTAURANT EXPERIENCE</p>
         </motion.div>
       </div>
     </div>
   );
 }
 
-function Screen({ children, align = "center", bare = false }) {
+function Screen({ children, align = "center", bare = false, theme }) {
   if (bare) {
-    return <main className="min-h-dvh bg-[#f6efe6] [overflow-anchor:none]">{children}</main>;
+    return (
+      <main style={{ ...(theme || {}), backgroundColor: choiceCanvas }} className="min-h-dvh [overflow-anchor:none]">
+        {children}
+      </main>
+    );
   }
 
   return (
-    <main className={`flex min-h-dvh flex-col bg-ivory px-4 pb-[max(1rem,env(safe-area-inset-bottom))] [overflow-anchor:none] sm:px-8 lg:px-12 ${align === "start" ? "overflow-x-visible pt-[max(0.75rem,env(safe-area-inset-top))]" : "overflow-x-clip pt-[max(2rem,env(safe-area-inset-top))]"}`}>
+    <main style={theme} className={`flex min-h-dvh flex-col bg-ivory px-4 pb-[max(1rem,env(safe-area-inset-bottom))] [overflow-anchor:none] sm:px-8 lg:px-12 ${align === "start" ? "overflow-x-visible pt-[max(0.75rem,env(safe-area-inset-top))]" : "overflow-x-clip pt-[max(2rem,env(safe-area-inset-top))]"}`}>
       <div className={`${align === "start" ? "" : "my-auto"} w-full max-w-5xl self-center`}>{children}</div>
 
       {align === "center" ? <PoweredBy className="text-ink/70" /> : null}

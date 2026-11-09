@@ -9,13 +9,13 @@ function ScoreStars({ label, value, light }) {
   const score = Number(value) || 0;
   return (
     <div className="flex items-center justify-between gap-3">
-      <span className={`text-sm font-semibold ${light ? "text-white/85" : "text-burgundy-deep"}`}>{label}</span>
+      <span className={`text-sm font-semibold ${light ? "text-on-primary/85" : "text-burgundy-deep"}`}>{label}</span>
       <span className="flex gap-0.5" aria-label={`${label} ${score} من 5`}>
         {[1, 2, 3, 4, 5].map((star) => (
           <svg
             key={star}
             viewBox="0 0 24 24"
-            className={`size-4 ${star <= score ? "text-gold" : light ? "text-white/25" : "text-ink/20"}`}
+            className={`size-4 ${star <= score ? "text-gold" : light ? "text-on-primary/25" : "text-ink/20"}`}
             aria-hidden="true"
             fill="currentColor"
           >
@@ -138,7 +138,7 @@ export function OrderReview({ token, status, onReviewed }) {
             : "bg-paper ring-1 ring-burgundy/10"
         }`}
       >
-        <h2 className={`font-display text-lg font-semibold ${onReady ? "text-white" : "text-burgundy-deep"}`}>
+        <h2 className={`font-display text-lg font-semibold ${onReady ? "text-on-primary" : "text-burgundy-deep"}`}>
           تقييمكم
         </h2>
         <div className="mt-2 flex flex-col gap-1.5">
@@ -146,7 +146,7 @@ export function OrderReview({ token, status, onReviewed }) {
           <ScoreStars label="الطعام" value={review.food_rating} light={onReady} />
         </div>
         {review.message ? (
-          <p className={`mt-2 text-sm leading-6 ${onReady ? "text-white/80" : "text-ink/75"}`}>{review.message}</p>
+          <p className={`mt-2 text-sm leading-6 ${onReady ? "text-on-primary/80" : "text-ink/75"}`}>{review.message}</p>
         ) : null}
       </section>
     );
@@ -268,7 +268,7 @@ export function OrderReview({ token, status, onReviewed }) {
                 <button
                   type="submit"
                   disabled={busy}
-                  className="mt-4 inline-flex h-12 w-full cursor-pointer items-center justify-center rounded-2xl bg-burgundy font-semibold text-ivory disabled:opacity-40"
+                  className="mt-4 inline-flex h-12 w-full cursor-pointer items-center justify-center rounded-2xl bg-burgundy font-semibold text-on-primary disabled:opacity-40"
                 >
                   {busy ? "يتم الإرسال" : "إرسال التقييم"}
                 </button>

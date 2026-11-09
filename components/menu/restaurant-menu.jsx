@@ -99,7 +99,7 @@ function TrashIcon() {
 function RowButton({ icon, children, tone = "default", ...props }) {
   const tones = {
     default: "bg-white text-burgundy-deep ring-burgundy/15 hover:bg-foam",
-    quiet: "bg-[#f7f1e4] text-gold-deep ring-gold/30 hover:bg-gold/25",
+    quiet: "bg-wash text-gold-deep ring-gold/30 hover:bg-gold/25",
     danger: "bg-white text-burgundy ring-burgundy/15 hover:bg-foam",
   };
 
@@ -262,7 +262,7 @@ function ItemsDialog({ category, busy, onClose, onCreate, onEdit, onToggle, onMo
           ) : (
             <div className="mt-4 overflow-x-auto rounded-xl ring-1 ring-burgundy/10">
               <table className="w-full min-w-[640px] border-collapse bg-white">
-                <thead className="bg-[#f7f1e4]">
+                <thead className="bg-wash">
                   <tr className="border-b border-burgundy/10">
                     <th className={headCell}>العنصر</th>
                     <th className={headCell}>الوصف</th>
@@ -740,7 +740,7 @@ export function RestaurantMenu({ token, onUnauthenticated, onInactive, onFeature
             <p className="text-xs text-ink/45">حتى 5 صور في أعلى قائمة الزبون. إخفاء اللافتة يبقيها ضمن العدد.</p>
           </div>
           <label
-            className={`inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-burgundy px-4 text-sm font-semibold text-ivory ${
+            className={`inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-burgundy px-4 text-sm font-semibold text-on-primary ${
               busy || !loaded || banners.length >= 5 ? "pointer-events-none opacity-40" : "cursor-pointer"
             }`}
           >
@@ -834,7 +834,7 @@ export function RestaurantMenu({ token, onUnauthenticated, onInactive, onFeature
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[720px] border-collapse">
-              <thead className="bg-[#f7f1e4]">
+              <thead className="bg-wash">
                 <tr className="border-b border-burgundy/10">
                   <th className={headCell}>التصنيف</th>
                   <th className={headCell}>الحالة</th>

@@ -63,7 +63,7 @@ export function ScreenSwitch({ value, onChange, options }) {
               wide ? "px-1 text-xs sm:px-3 sm:text-sm" : "px-3 text-sm"
             } ${
               selected
-                ? "bg-burgundy text-ivory shadow-[inset_0_-2px_0_#cda649]"
+                ? "bg-burgundy text-on-primary shadow-[inset_0_-2px_0_var(--restaurant-secondary)]"
                 : "text-ink/55 hover:bg-foam hover:text-burgundy"
             }`}
           >

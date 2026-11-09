@@ -5,6 +5,7 @@ import { motion, useReducedMotion } from "framer-motion";
 import { menuAssetSrc } from "@/lib/api/client";
 // import { RestaurantContact } from "@/components/customer/restaurant-contact";
 import { customerCopy } from "@/lib/customer/public";
+import { restaurantTitle } from "@/lib/theme/restaurant-theme";
 import { categoryIndexAtMarker } from "@/lib/customer/public-menu";
 import { formatPrice } from "@/lib/menu/menu";
 import { Article, Funnel, Tag } from "@phosphor-icons/react";
@@ -41,7 +42,7 @@ function RoundPhoto({ src, label, className, fit = "cover" }) {
 
   const mark = [...String(label || "•")][0] || "•";
   return (
-    <span aria-hidden="true" className={`grid place-items-center bg-[#f3e6c8] font-detail font-semibold text-burgundy ${className}`}>
+    <span aria-hidden="true" className={`grid place-items-center bg-photo font-detail font-semibold text-burgundy ${className}`}>
       {mark}
     </span>
   );
@@ -213,7 +214,7 @@ function ItemBadge({ badge, lang }) {
   return (
     <span
       className={`absolute top-2 start-2 rounded-full px-2 py-0.5 text-[11px] font-bold ${
-        offer ? "bg-[#f7f1e4] text-gold-deep ring-1 ring-gold/60" : "bg-burgundy text-ivory"
+        offer ? "bg-wash text-gold-deep ring-1 ring-gold/60" : "bg-burgundy text-on-primary"
       }`}
     >
       {offer ? phrase("badgeOffer", lang) : phrase("badgeNew", lang)}
@@ -283,7 +284,7 @@ function ItemDialog({ item, related, restaurantName, iconUrl, onOpen, onClose, l
           animate={{ opacity: 1 }}
           transition={{ duration: reduceMotion ? 0 : 0.2 }}
         >
-          <div className="relative bg-[#f3f1ec]">
+          <div className="relative bg-soft">
             <RoundPhoto src={item.photoUrl} label={itemName} className="aspect-[4/3] w-full text-5xl" />
             <ItemBadge badge={item.badge} lang={lang} />
           </div>
@@ -409,7 +410,7 @@ function MenuBoardSheet({ board, onChoose, onClose, lang }) {
                 aria-current={selected ? "true" : undefined}
                 onClick={() => onChoose(option.id)}
                 className={`cursor-pointer rounded-xl px-4 py-3 text-start text-base font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold ${
-                  selected ? "bg-[#f3f1ec] text-ink" : "text-ink/75"
+                  selected ? "bg-soft text-ink" : "text-ink/75"
                 }`}
               >
                 {phrase(option.key, lang)}
@@ -477,7 +478,7 @@ function CategoryFilterSheet({ categories, active, onChoose, onClose, lang }) {
                     aria-current={selected ? "true" : undefined}
                     onClick={() => onChoose(item.sourceIndex)}
                     className={`block w-full cursor-pointer rounded-lg px-4 py-3 text-start transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold ${
-                      selected ? "bg-[#f3f1ec]" : "hover:bg-[#f7f4ee]"
+                      selected ? "bg-soft" : "hover:bg-[#f7f4ee]"
                     }`}
                   >
                     <span className="flex items-center justify-between gap-3">
@@ -518,7 +519,7 @@ function LayoutSwitch({ layout, onChange, lang }) {
             title={label}
             onClick={() => onChange(id)}
             className={`inline-flex size-8 cursor-pointer items-center justify-center rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold ${
-              selected ? "bg-[#f3f1ec] text-ink" : "text-ink/55"
+              selected ? "bg-soft text-ink" : "text-ink/55"
             }`}
           >
             {icon}
@@ -532,7 +533,7 @@ function LayoutSwitch({ layout, onChange, lang }) {
 function pillClass(selected) {
   return `shrink-0 cursor-pointer whitespace-nowrap rounded-full border px-4 py-2 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold ${
     selected
-      ? "border-burgundy bg-burgundy text-ivory shadow-[0_8px_18px_-12px_rgba(74,4,24,0.85)]"
+      ? "border-burgundy bg-burgundy text-on-primary shadow-[0_8px_18px_-12px_rgba(74,4,24,0.85)]"
       : "border-black/10 bg-white text-ink/70"
   }`;
 }
@@ -630,7 +631,7 @@ function MenuItemCard({ item, layout, onOpen, lang, index = 0 }) {
   );
 }
 
-export function PublicMenu({ name, iconUrl, contact = null, banners = [], categories, loading = false, onBack }) {
+export function PublicMenu({ name, nameEn = "", iconUrl, contact = null, banners = [], categories, loading = false, onBack }) {
   const reduceMotion = useReducedMotion();
   const [active, setActive] = useState(0);
   const [board, setBoard] = useState("main");
@@ -640,6 +641,7 @@ export function PublicMenu({ name, iconUrl, contact = null, banners = [], catego
   const [query, setQuery] = useState("");
   const [detail, setDetail] = useState(null);
   const [lang, setLang] = useState("en");
+  const shownName = restaurantTitle({ name, name_en: nameEn }, lang);
   const boarded = categoriesForBoard(categories, board);
   const visible = visibleCategories(boarded, query);
   const cards = menuCards(visible);
@@ -809,15 +811,15 @@ export function PublicMenu({ name, iconUrl, contact = null, banners = [], catego
             </button>
           ) : null}
           {iconUrl ? (
-            <img src={iconUrl} alt="" className="size-10 shrink-0 rounded-full bg-[#f3e6c8] object-cover ring-1 ring-black/5 sm:size-12 md:size-14" />
+            <img src={iconUrl} alt="" className="size-10 shrink-0 rounded-full bg-photo object-cover ring-1 ring-black/5 sm:size-12 md:size-14" />
           ) : null}
-          {name ? <h1 className="min-w-0 flex-1 truncate text-sm font-semibold text-ink sm:text-base md:text-lg">{name}</h1> : <span className="flex-1" />}
+          {shownName ? <h1 className="min-w-0 flex-1 truncate text-sm font-semibold text-ink sm:text-base md:text-lg">{shownName}</h1> : <span className="flex-1" />}
           <div role="group" aria-label={lang === "en" ? "Language" : "اللغة"} className="ms-auto flex shrink-0 rounded-full bg-white p-1 ring-1 ring-burgundy/15">
             <button
               type="button"
               aria-pressed={lang === "en"}
               onClick={() => setLang("en")}
-              className={`cursor-pointer rounded-full px-3 py-1 text-xs font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold ${lang === "en" ? "bg-burgundy text-ivory" : "text-burgundy"}`}
+              className={`cursor-pointer rounded-full px-3 py-1 text-xs font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold ${lang === "en" ? "bg-burgundy text-on-primary" : "text-burgundy"}`}
             >
               EN
             </button>
@@ -825,7 +827,7 @@ export function PublicMenu({ name, iconUrl, contact = null, banners = [], catego
               type="button"
               aria-pressed={lang === "ar"}
               onClick={() => setLang("ar")}
-              className={`cursor-pointer rounded-full px-3 py-1 text-xs font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold ${lang === "ar" ? "bg-burgundy text-ivory" : "text-burgundy"}`}
+              className={`cursor-pointer rounded-full px-3 py-1 text-xs font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold ${lang === "ar" ? "bg-burgundy text-on-primary" : "text-burgundy"}`}
             >
               AR
             </button>
@@ -959,7 +961,7 @@ export function PublicMenu({ name, iconUrl, contact = null, banners = [], catego
         <ItemDialog
           item={detail}
           related={cards.filter((card) => card.key !== detail.key && card.sourceIndex === detail.sourceIndex).slice(0, 8)}
-          restaurantName={name}
+          restaurantName={shownName}
           iconUrl={iconUrl}
           lang={lang}
           onOpen={setDetail}

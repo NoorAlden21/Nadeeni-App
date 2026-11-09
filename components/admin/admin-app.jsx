@@ -27,7 +27,7 @@ function ExitButton({ onClick, children = "خروج" }) {
     <button
       type="button"
       onClick={onClick}
-      className="inline-flex h-11 cursor-pointer items-center justify-center rounded-2xl bg-burgundy px-5 font-semibold text-ivory"
+      className="inline-flex h-11 cursor-pointer items-center justify-center rounded-2xl bg-burgundy px-5 font-semibold text-on-primary"
     >
       {children}
     </button>

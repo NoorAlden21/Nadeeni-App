@@ -3,11 +3,11 @@
 import { countOf, formatDayLabel, formatRating, formatShare, readyDurationParts, sharePercent } from "@/lib/owner/stats";
 import { DurationReadout, OwnerSection, StatTile } from "@/components/owner/owner-section";
 
-const gold = "#cda649";
-const goldDeep = "#8c6e2c";
-const burgundy = "#7e062a";
-const burgundyDeep = "#4a0418";
-const foam = "#f8e8ed";
+const gold = "var(--restaurant-secondary, #cda649)";
+const goldDeep = "var(--restaurant-secondary-deep, #8c6e2c)";
+const burgundy = "var(--restaurant-primary, #7e062a)";
+const burgundyDeep = "var(--restaurant-primary-deep, #4a0418)";
+const foam = "var(--restaurant-foam, #f8e8ed)";
 
 function Swatch({ color, children }) {
   return (

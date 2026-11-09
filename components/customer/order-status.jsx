@@ -15,6 +15,8 @@ import {
   vapidKeyBytes,
 } from "@/lib/customer/public";
 import { playReadyAlert, primeReadyAlert } from "@/lib/customer/ready-alert";
+import { readStoredTheme } from "@/lib/theme/restaurant-theme";
+import { useRestaurantTheme } from "@/components/theme/use-restaurant-theme";
 
 function statusWords(status) {
   if (status === "collected") return customerCopy.collected;
@@ -40,7 +42,7 @@ function ReadyMark({ animate }) {
         ))
       ) : null}
       <motion.span
-        className="relative flex h-24 w-24 items-center justify-center rounded-full bg-gradient-to-tr from-gold-deep to-gold shadow-[0_0_40px_rgba(205,166,73,0.6)] text-burgundy-deep"
+        className="relative flex h-24 w-24 items-center justify-center rounded-full bg-gradient-to-tr from-gold-deep to-gold text-on-secondary shadow-[0_0_40px_rgba(205,166,73,0.6)]"
         initial={animate ? { scale: 0.5, opacity: 0 } : false}
         animate={{ scale: 1, opacity: 1 }}
         transition={{ type: "spring", stiffness: 200, damping: 15 }}
@@ -75,6 +77,7 @@ export function OrderStatus({ token }) {
   const seenStatus = useRef(null);
   const alerted = useRef(false);
   const gameWasOpen = useRef(false);
+  const theme = useRestaurantTheme(order?.restaurant_name ? readStoredTheme(order.restaurant_name) : null);
 
   useEffect(() => {
     setIphone(/iPhone/.test(navigator.userAgent));
@@ -306,8 +309,9 @@ export function OrderStatus({ token }) {
 
   return (
     <main
+      style={theme}
       className={`relative flex flex-col px-4 transition-colors duration-1000 ease-in-out ${
-        ready ? "h-dvh overflow-hidden bg-burgundy text-white" : "min-h-dvh bg-ivory text-ink"
+        ready ? "h-dvh overflow-hidden bg-burgundy text-on-primary" : "min-h-dvh bg-ivory text-ink"
       }`}
     >
       {/* إضاءات خلفية ناعمة */}
@@ -330,11 +334,11 @@ export function OrderStatus({ token }) {
       >
         
         {/* رأس الصفحة (اسم المطعم) */}
-        <div className={`mb-6 flex items-center gap-2 rounded-full px-5 py-2 backdrop-blur-sm ${ready ? "bg-black/10 border border-white/10" : "bg-white/50 border border-burgundy/5 shadow-sm"}`}>
+        <div className={`mb-6 flex items-center gap-2 rounded-full px-5 py-2 backdrop-blur-sm ${ready ? "border border-on-primary/10 bg-black/10" : "border border-burgundy/5 bg-white/50 shadow-sm"}`}>
           {iconUrl ? (
             <img src={iconUrl} alt="" className="h-8 w-8 rounded-full object-cover" />
           ) : null}
-          <p className={`text-sm font-bold ${ready ? "text-white/90" : "text-burgundy-deep"}`}>
+          <p className={`text-sm font-bold ${ready ? "text-on-primary/90" : "text-burgundy-deep"}`}>
             {order.restaurant_name}
           </p>
         </div>
@@ -352,7 +356,7 @@ export function OrderStatus({ token }) {
               <div className="relative flex justify-between">
                 {/* الخط يمتد من منتصف الدائرة الأولى إلى منتصف الأخيرة فقط */}
                 <div className="absolute top-5 right-5 left-5 z-0 h-[2px]">
-                  <div className={`absolute inset-0 ${ready ? "bg-white/20" : "bg-burgundy/10"}`} />
+                  <div className={`absolute inset-0 ${ready ? "bg-on-primary/20" : "bg-burgundy/10"}`} />
                   <div
                     className="absolute inset-y-0 right-0 bg-gold transition-all duration-1000 ease-out"
                     style={{ width: activeStep === 1 ? "0%" : activeStep === 2 ? "50%" : "100%" }}
@@ -362,7 +366,7 @@ export function OrderStatus({ token }) {
                 {/* الخطوة 1: التحضير */}
                 <div className="relative z-10 flex flex-col items-center gap-2">
                   <div className={`relative flex h-10 w-10 items-center justify-center rounded-full transition-colors duration-500 ${
-                    activeStep === 1 ? 'bg-burgundy text-white' : 'bg-gold text-burgundy-deep shadow-sm'
+                    activeStep === 1 ? "bg-burgundy text-on-primary" : "bg-gold text-on-secondary shadow-sm"
                   }`}>
                     {activeStep === 1 && (
                       <div className="absolute inset-0 rounded-full border-2 border-burgundy opacity-75 animate-[ping_2s_cubic-bezier(0,0,0.2,1)_infinite]" />
@@ -378,16 +382,16 @@ export function OrderStatus({ token }) {
                     )}
                   </div>
                   <span className={`absolute -bottom-6 text-xs font-bold whitespace-nowrap ${
-                    activeStep === 1 ? 'text-burgundy-deep' : (ready ? 'text-white' : 'text-ink/60')
+                    activeStep === 1 ? "text-burgundy-deep" : ready ? "text-on-primary" : "text-ink/60"
                   }`}>التحضير</span>
                 </div>
 
                 {/* الخطوة 2: جاهز */}
                 <div className="relative z-10 flex flex-col items-center gap-2">
                   <div className={`relative flex h-10 w-10 items-center justify-center rounded-full transition-colors duration-500 ${
-                    activeStep === 2 ? 'bg-gold text-burgundy-deep shadow-[0_0_15px_rgba(205,166,73,0.5)]' : 
-                    activeStep > 2 ? 'bg-gold text-burgundy-deep shadow-sm' : 
-                    'border-2 bg-white/50 ' + (ready ? 'border-white/30 text-white/50' : 'border-burgundy/15 text-burgundy/30')
+                    activeStep === 2 ? "bg-gold text-on-secondary shadow-[0_0_15px_rgba(205,166,73,0.5)]" :
+                    activeStep > 2 ? "bg-gold text-on-secondary shadow-sm" :
+                    "border-2 bg-white/50 " + (ready ? "border-on-primary/30 text-on-primary/50" : "border-burgundy/15 text-burgundy/30")
                   }`}>
                     {activeStep === 2 && (
                       <div className="absolute inset-0 rounded-full border-2 border-gold opacity-75 animate-[ping_2s_cubic-bezier(0,0,0.2,1)_infinite]" />
@@ -403,9 +407,9 @@ export function OrderStatus({ token }) {
                     )}
                   </div>
                   <span className={`absolute -bottom-6 text-xs font-bold whitespace-nowrap ${
-                    activeStep === 2 ? 'text-white' : 
-                    activeStep > 2 ? (ready ? 'text-white/80' : 'text-ink/60') : 
-                    (ready ? 'text-white/50' : 'text-ink/40')
+                    activeStep === 2 ? "text-on-primary" :
+                    activeStep > 2 ? (ready ? "text-on-primary/80" : "text-ink/60") :
+                    (ready ? "text-on-primary/50" : "text-ink/40")
                   }`}>جاهز</span>
                 </div>
 
@@ -414,9 +418,9 @@ export function OrderStatus({ token }) {
                   <div className={`relative flex h-10 w-10 items-center justify-center rounded-full transition-colors duration-500 ${
                     activeStep === 3
                       ? (ready
-                        ? 'bg-gold text-burgundy-deep shadow-[0_0_15px_rgba(205,166,73,0.5)]'
-                        : 'bg-burgundy text-white shadow-md')
-                      : 'border-2 bg-white/50 ' + (ready ? 'border-white/30 text-white/50' : 'border-burgundy/15 text-burgundy/30')
+                        ? "bg-gold text-on-secondary shadow-[0_0_15px_rgba(205,166,73,0.5)]"
+                        : "bg-burgundy text-on-primary shadow-md")
+                      : "border-2 bg-white/50 " + (ready ? "border-on-primary/30 text-on-primary/50" : "border-burgundy/15 text-burgundy/30")
                   }`}>
                     {activeStep === 3 ? (
                       <div className={`absolute inset-0 rounded-full border-2 opacity-75 animate-[ping_2s_cubic-bezier(0,0,0.2,1)_infinite] ${ready ? "border-gold" : "border-burgundy"}`} />
@@ -426,7 +430,7 @@ export function OrderStatus({ token }) {
                     </svg>
                   </div>
                   <span className={`absolute -bottom-6 text-xs font-bold whitespace-nowrap ${
-                    activeStep === 3 ? (ready ? 'text-white' : 'text-burgundy-deep') : (ready ? 'text-white/50' : 'text-ink/40')
+                    activeStep === 3 ? (ready ? "text-on-primary" : "text-burgundy-deep") : ready ? "text-on-primary/50" : "text-ink/40"
                   }`}>مكتمل</span>
                 </div>
 
@@ -443,12 +447,12 @@ export function OrderStatus({ token }) {
               className="flex flex-col items-center"
             >
               <ReadyMark animate={!reduceMotion} />
-              <h1 className="mt-5 font-display text-4xl font-black tracking-tight text-white drop-shadow-md sm:text-5xl">
+              <h1 className="mt-5 font-display text-4xl font-black tracking-tight text-on-primary drop-shadow-md sm:text-5xl">
                 {customerCopy.ready}
               </h1>
               
               <div className="mt-4 flex flex-col items-center gap-2">
-                <p className="text-lg font-medium text-white/80">{customerCopy.pickup}</p>
+                <p className="text-lg font-medium text-on-primary/80">{customerCopy.pickup}</p>
                 <div className="inline-flex items-center gap-2 rounded-2xl bg-gold/20 px-6 py-3 border border-gold/30 backdrop-blur-md">
                   <span className="text-sm font-semibold text-gold-deep">رقم الطلب</span>
                   <span dir="ltr" className="font-sans text-3xl font-bold text-gold">{order.order_number}</span>
@@ -538,7 +542,7 @@ function ArrivalNotice({ iphone, onConfirm }) {
         <button
           type="button"
           onClick={onConfirm}
-          className="mt-6 inline-flex h-12 w-full cursor-pointer items-center justify-center rounded-2xl bg-burgundy font-semibold text-ivory"
+          className="mt-6 inline-flex h-12 w-full cursor-pointer items-center justify-center rounded-2xl bg-burgundy font-semibold text-on-primary"
         >
           {customerCopy.gotIt}
         </button>

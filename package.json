@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "node --experimental-detect-module --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test lib/games/twenty48.test.js lib/menu/menu.test.js lib/customer/public-menu.test.js lib/features.test.js lib/contact.test.js"
+    "test": "node --experimental-detect-module --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test lib/games/twenty48.test.js lib/menu/menu.test.js lib/customer/public-menu.test.js lib/features.test.js lib/contact.test.js lib/theme/restaurant-theme.test.js"
   },
   "dependencies": {
     "@phosphor-icons/react": "^2.1.10",

@@ -2,11 +2,11 @@
 
 const variants = {
   primary:
-    "bg-burgundy text-ivory shadow-[inset_0_1px_0_rgba(253,250,241,0.16),inset_0_-2px_0_#cda649] hover:bg-burgundy-deep",
+    "bg-burgundy text-on-primary shadow-[inset_0_1px_0_rgba(253,250,241,0.16),inset_0_-2px_0_var(--restaurant-secondary)] hover:bg-burgundy-deep",
   quiet:
-    "bg-[#f7f1e4] text-gold-deep ring-1 ring-inset ring-gold/30 hover:bg-gold/25",
+    "bg-wash text-gold-deep ring-1 ring-inset ring-gold/30 hover:bg-gold/25",
   soft:
-    "bg-burgundy font-detail text-white hover:bg-burgundy-deep",
+    "bg-burgundy font-detail text-on-primary hover:bg-burgundy-deep",
   ghost:
     "bg-transparent font-medium text-ink/40 underline-offset-4 hover:text-burgundy hover:underline",
 };

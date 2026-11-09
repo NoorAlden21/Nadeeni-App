@@ -7,6 +7,7 @@ import { formatStamp, slugPattern, wholeNumber } from "@/lib/admin/format";
 import { restaurantIconSrc } from "@/lib/api/client";
 import { contactChanges } from "@/lib/contact";
 import { featureSummary } from "@/lib/features";
+import { normalizeHex, themeFieldChanges, themeStyle } from "@/lib/theme/restaurant-theme";
 
 const qrLabel = {
   shared: "رمز مشترك",
@@ -59,6 +60,9 @@ function toPayload(body, icon) {
 
 const blankForm = {
   name: "",
+  name_en: "",
+  primary_color: "",
+  secondary_color: "",
   slug: "",
   preferred_qr_mode: "shared",
   timezone: "Asia/Damascus",
@@ -69,6 +73,51 @@ const blankForm = {
   instagram_url: "",
   phone: "",
 };
+
+function ColorField({ id, label, value, onChange }) {
+  const parsed = normalizeHex(value);
+  return (
+    <Field id={id} label={label}>
+      <div className="flex items-center gap-2">
+        <input
+          type="color"
+          aria-label={label}
+          value={parsed || "#7e062a"}
+          onChange={(event) => onChange(event.target.value)}
+          className={`size-12 shrink-0 cursor-pointer rounded-2xl border border-burgundy/15 bg-white p-1 ${parsed ? "" : "opacity-40"}`}
+        />
+        <TextInput
+          id={id}
+          dir="ltr"
+          value={value}
+          maxLength={7}
+          spellCheck={false}
+          placeholder="#7e062a"
+          onChange={(event) => onChange(event.target.value)}
+        />
+      </div>
+    </Field>
+  );
+}
+
+function ThemePreview({ primary, secondary }) {
+  return (
+    <div
+      style={themeStyle({ primary_color: primary, secondary_color: secondary })}
+      className="grid grid-cols-3 gap-2"
+    >
+      <span className="flex h-10 items-center justify-center rounded-xl bg-burgundy text-xs font-semibold text-on-primary">
+        أساسي
+      </span>
+      <span className="flex h-10 items-center justify-center rounded-xl bg-gold text-xs font-semibold text-on-secondary">
+        ثانوي
+      </span>
+      <span className="flex h-10 items-center justify-center rounded-xl bg-wash text-xs font-semibold text-ink ring-1 ring-burgundy/10">
+        خلفية
+      </span>
+    </div>
+  );
+}
 
 export function RestaurantPanel({
   restaurants,
@@ -110,6 +159,9 @@ export function RestaurantPanel({
     setEditingId(restaurant.id);
     setForm({
       name: restaurant.name || "",
+      name_en: restaurant.name_en || "",
+      primary_color: restaurant.primary_color || "",
+      secondary_color: restaurant.secondary_color || "",
       slug: restaurant.slug || "",
       preferred_qr_mode: restaurant.preferred_qr_mode || "shared",
       timezone: restaurant.timezone || "Asia/Damascus",
@@ -155,6 +207,12 @@ export function RestaurantPanel({
       is_active: form.is_active,
     };
 
+    const themeFields = themeFieldChanges(editing, form);
+    if (themeFields.error) {
+      setError(themeFields.error);
+      return null;
+    }
+
     if (!editing) {
       const planId = wholeNumber(form.plan_id);
       if (planId === null || !activePlans.some((plan) => Number(plan.id) === planId)) {
@@ -166,7 +224,7 @@ export function RestaurantPanel({
         setError(contact.error);
         return null;
       }
-      return toPayload({ ...next, plan_id: planId, ...contact.body }, icon);
+      return { ...next, plan_id: planId, ...contact.body, ...themeFields.body };
     }
 
     const currentPlanId = editing.subscription?.plan_id ?? null;
@@ -198,14 +256,14 @@ export function RestaurantPanel({
       setError(contact.error);
       return null;
     }
-    Object.assign(body, contact.body);
+    Object.assign(body, contact.body, themeFields.body);
 
     if (Object.keys(body).length === 0 && !icon) {
       setError("لا تغيير للحفظ.");
       return null;
     }
 
-    return toPayload(body, icon);
+    return body;
   }
 
   async function handleSubmit(event) {
@@ -215,7 +273,18 @@ export function RestaurantPanel({
       return;
     }
 
-    const ok = editing ? await onUpdate(editing.id, body, setError) : await onCreate(body, setError);
+    let ok = false;
+    if (!editing) {
+      ok = await onCreate(toPayload(body, icon), setError);
+    } else if (!icon) {
+      ok = await onUpdate(editing.id, body, setError);
+    } else {
+      if (Object.keys(body).length > 0) {
+        ok = await onUpdate(editing.id, body, setError);
+        if (!ok) return;
+      }
+      ok = await onUpdate(editing.id, toPayload({}, icon), setError);
+    }
     if (ok) {
       clearIcon();
       if (!editing) {
@@ -252,6 +321,26 @@ export function RestaurantPanel({
                       <p className="font-display text-xl font-semibold text-burgundy-deep">
                         {restaurant.name}
                       </p>
+                      {restaurant.name_en ? (
+                        <p dir="ltr" className="mt-1 text-end text-sm text-ink/55">
+                          {restaurant.name_en}
+                        </p>
+                      ) : null}
+                      {normalizeHex(restaurant.primary_color) || normalizeHex(restaurant.secondary_color) ? (
+                        <span className="mt-2 flex items-center gap-1.5">
+                          {[restaurant.primary_color, restaurant.secondary_color].map((color, index) => {
+                            const hex = normalizeHex(color);
+                            if (!hex) return null;
+                            return (
+                              <span
+                                key={`${index}-${hex}`}
+                                className="size-4 rounded-full ring-1 ring-burgundy/15"
+                                style={{ backgroundColor: hex }}
+                              />
+                            );
+                          })}
+                        </span>
+                      ) : null}
                       <p dir="ltr" className="mt-1 text-end font-sans text-sm text-ink/55">
                         {restaurant.slug}
                       </p>
@@ -330,6 +419,31 @@ export function RestaurantPanel({
               onChange={(event) => update("name", event.target.value)}
             />
           </Field>
+          <Field id="restaurant-name-en" label="الاسم بالإنجليزية">
+            <TextInput
+              id="restaurant-name-en"
+              dir="ltr"
+              value={form.name_en}
+              maxLength={255}
+              onChange={(event) => update("name_en", event.target.value)}
+            />
+          </Field>
+          <ColorField
+            id="restaurant-primary"
+            label="اللون الأساسي"
+            value={form.primary_color}
+            onChange={(value) => update("primary_color", value)}
+          />
+          <ColorField
+            id="restaurant-secondary"
+            label="اللون الثانوي"
+            value={form.secondary_color}
+            onChange={(value) => update("secondary_color", value)}
+          />
+          <ThemePreview primary={form.primary_color} secondary={form.secondary_color} />
+          <p className="text-sm leading-6 text-ink/55">
+            الاسم الإنجليزي والألوان اختيارية. عند التعديل، الحقل الفارغ يمسح القيمة. اللون الفارغ يبقي لون ناديني.
+          </p>
           <Field id="restaurant-slug" label="المعرّف">
             <TextInput
               id="restaurant-slug"

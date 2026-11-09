@@ -231,7 +231,7 @@ function MenuFormBody({ draft, categories, pending, onSave, onClose }) {
                   className="size-16 rounded-2xl object-cover ring-1 ring-burgundy/10"
                 />
               ) : null}
-              <label className="inline-flex h-11 cursor-pointer items-center justify-center rounded-2xl bg-[#f7f1e4] px-4 text-sm font-semibold text-gold-deep ring-1 ring-inset ring-gold/30">
+              <label className="inline-flex h-11 cursor-pointer items-center justify-center rounded-2xl bg-wash px-4 text-sm font-semibold text-gold-deep ring-1 ring-inset ring-gold/30">
                 <input
                   key={fileKey}
                   type="file"

@@ -7,21 +7,26 @@
   --color-ivory: #fdfaf1;
   --color-paper: #fffdf8;
   --color-ink: #2a1016;
-  --color-burgundy: #7e062a;
-  --color-burgundy-deep: #4a0418;
-  --color-gold: #cda649;
-  --color-gold-deep: #8c6e2c;
-  --color-foam: #f8e8ed;
+  --color-burgundy: var(--restaurant-primary, #7e062a);
+  --color-burgundy-deep: var(--restaurant-primary-deep, #4a0418);
+  --color-gold: var(--restaurant-secondary, #cda649);
+  --color-gold-deep: var(--restaurant-secondary-deep, #8c6e2c);
+  --color-foam: var(--restaurant-foam, #f8e8ed);
+  --color-on-primary: var(--restaurant-on-primary, #fdfaf1);
+  --color-on-secondary: var(--restaurant-on-secondary, #4a0418);
+  --color-wash: var(--restaurant-wash, #f7f1e4);
+  --color-photo: var(--restaurant-photo, #f3e6c8);
+  --color-soft: var(--restaurant-soft, #f3f1ec);
   --color-background: #fdfaf1;
   --color-foreground: #2a1016;
-  --color-primary: #7e062a;
-  --color-primary-foreground: #fdfaf1;
-  --color-secondary: #f7f1e4;
-  --color-secondary-foreground: #8c6e2c;
-  --color-muted: #f7f1e4;
-  --color-muted-foreground: #8c6e2c;
+  --color-primary: var(--restaurant-primary, #7e062a);
+  --color-primary-foreground: var(--restaurant-on-primary, #fdfaf1);
+  --color-secondary: var(--restaurant-wash, #f7f1e4);
+  --color-secondary-foreground: var(--restaurant-secondary-deep, #8c6e2c);
+  --color-muted: var(--restaurant-wash, #f7f1e4);
+  --color-muted-foreground: var(--restaurant-secondary-deep, #8c6e2c);
   --color-border: #eadfca;
-  --color-ring: #cda649;
+  --color-ring: var(--restaurant-secondary, #cda649);
   --animate-shake: nadeeni-shake 0.48s ease-in-out;
 
   @keyframes nadeeni-shake {

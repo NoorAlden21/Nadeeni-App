@@ -11,6 +11,7 @@ import { QrDialog } from "@/components/cashier/qr-dialog";
 import { UncollectDialog } from "@/components/cashier/uncollect-dialog";
 import { RestaurantMenu } from "@/components/menu/restaurant-menu";
 import { SideNav } from "@/components/menu/screen-switch";
+import { useRestaurantTheme } from "@/components/theme/use-restaurant-theme";
 import { Bell, CircleCheck, Clock3, LogOut, Menu, QrCode, X } from "lucide-react";
 import {
   cashierCopy,
@@ -54,6 +55,7 @@ export function CashierDashboard({ token, user, onUnauthenticated, onInactive })
   const onUnauthenticatedRef = useRef(onUnauthenticated);
   const onInactiveRef = useRef(onInactive);
   const busyIds = useRef(new Set());
+  const theme = useRestaurantTheme(user?.restaurant);
   const timeZone = user.restaurant?.timezone || "Asia/Damascus";
   const features = readFeatures(user.restaurant);
   const pager = features.pager && !pagerOff;
@@ -476,7 +478,7 @@ export function CashierDashboard({ token, user, onUnauthenticated, onInactive })
   }
 
   return (
-    <div className="min-h-dvh overflow-x-clip bg-ivory">
+    <div style={theme} className="min-h-dvh overflow-x-clip bg-ivory">
       {showNav ? (
         <>
           {navOpen ? (

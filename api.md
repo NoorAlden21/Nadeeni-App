@@ -68,7 +68,7 @@ Read `user` from the login response. Do not ask the person to pick a role.
 |---|---|---|
 | `is_platform_admin: true` | Admin | `/admin/restaurants` |
 | `restaurant_role: "cashier"` | Cashier | `/orders`, `/restaurant/shared-qr` |
-| `restaurant_role: "owner"` | Owner | `/restaurant/stats`, `/restaurant/contact` |
+| `restaurant_role: "owner"` | Owner | `/restaurant/stats`, `/restaurant/contact`, `/restaurant/loyalty`, `/restaurant/loyalty/summary`, `/restaurant/loyalty/activity` |
 | no token | Customer `/r/{slug}` and `/o/{token}` | `/public/...` |
 
 `POST /auth/login`, `POST /auth/logout`, and `GET /me` are shared by the admin, the cashier, and the owner.
@@ -171,7 +171,7 @@ The API does not charge a card. The platform admin creates the plans and assigns
 
 `month` lasts one calendar month. `year` lasts one calendar year. `trial` lasts `duration_days` days. Use a trial of 7 or 14 days for the free period. `price` is a whole number in `currency`. It is a label for the admin screen. This API does not collect it.
 
-Sending `plan_id` for a restaurant that still has time left starts the new period when the current one ends. If the current period is missing or already over, the new period starts now. Changing a plan's price or duration does not change restaurants that already have it. Changing `pager`, `menu`, `ordering`, or `kitchen` updates every restaurant currently on that plan. Assigning a plan copies those four flags onto the restaurant.
+Sending `plan_id` for a restaurant that still has time left starts the new period when the current one ends. If the current period is missing or already over, the new period starts now. Changing a plan's price or duration does not change restaurants that already have it. Changing `pager`, `menu`, `ordering`, `kitchen`, or `loyalty` updates every restaurant currently on that plan. Assigning a plan copies those flags onto the restaurant.
 
 ### `GET /admin/subscription-plans`
 
@@ -200,6 +200,7 @@ Sending `plan_id` for a restaurant that still has time left starts the new perio
 | `menu` | Optional. Boolean. Default `false`. |
 | `ordering` | Optional. Boolean. Default `false`. Requires `menu`. |
 | `kitchen` | Optional. Boolean. Default `false`. |
+| `loyalty` | Optional. Boolean. Default `false`. Requires `pager`. |
 
 `201` is the created [Subscription plan](#subscription-plan).
 
@@ -230,6 +231,7 @@ These routes require a bearer token for a user with `is_platform_admin: true`. A
   {
     "id": 1,
     "name": "Shawarma House",
+    "name_en": null,
     "slug": "shawarma-house",
     "preferred_qr_mode": "shared",
     "timezone": "Asia/Damascus",
@@ -239,11 +241,14 @@ These routes require a bearer token for a user with `is_platform_admin: true`. A
     "facebook_url": null,
     "instagram_url": null,
     "phone": null,
+    "primary_color": null,
+    "secondary_color": null,
     "features": {
       "pager": true,
       "menu": false,
       "ordering": false,
-      "kitchen": false
+      "kitchen": false,
+      "loyalty": false
     },
     "subscription": {
       "plan_id": 1,
@@ -271,7 +276,8 @@ These routes require a bearer token for a user with `is_platform_admin: true`. A
 
 | Field | Rule |
 |---|---|
-| `name` | Required. String, max 255. |
+| `name` | Required. String, max 255. This is the Arabic name. |
+| `name_en` | Optional. String, max 255. The English name. Blank becomes `null`. |
 | `slug` | Required. Lowercased by the API. Letters, numbers, and single hyphens. Must be unique. Example: `shawarma-house`. |
 | `preferred_qr_mode` | Optional. `shared` or `per_order`. Default `shared`. |
 | `timezone` | Optional. PHP timezone name, such as `Asia/Damascus`. Default `Asia/Damascus`. |
@@ -282,6 +288,8 @@ These routes require a bearer token for a user with `is_platform_admin: true`. A
 | `facebook_url` | Optional. An `http` or `https` Facebook link (`facebook.com`, `fb.com`, or `fb.me`), max 255. Omit it or send `null` to leave it empty. |
 | `instagram_url` | Optional. An `http` or `https` Instagram link (`instagram.com` or `instagr.am`), max 255. Omit it or send `null` to leave it empty. |
 | `phone` | Optional. A mobile number, max 32. Digits, spaces, and `+ ( ) . -`. Omit it or send `null` to leave it empty. |
+| `primary_color` | Optional. A hex color, `#rgb` or `#rrggbb`. Stored as lowercase `#rrggbb`. Omit it or send `null` to leave it empty. |
+| `secondary_color` | Optional. Same rule as `primary_color`. |
 
 `201` is the created [Restaurant](#restaurant). `icon_url` is `null` when no icon was sent.
 
@@ -485,7 +493,43 @@ Resend asks the push service to deliver again. It does not mean the customer's p
 
 ### `POST /orders/{order}/collect`
 
-No body. Allowed from `waiting` or `ready`. `200` is the [Order](#order) with `status` `collected` and `collected_at` set.
+No body. Allowed from `waiting` or `ready`. `200` is the [Order](#order) with `status` `collected` and `collected_at` set. The order JSON does not include a stamp.
+
+When the restaurant's `loyalty` flag is on and its loyalty program is enabled, Collect records one stamp for this order in the same transaction. Collect from `waiting` counts. Cancel, expire, and uncollect do not. A second Collect is `409` and `{ "message": "invalid_status" }` and does not record another stamp. If the stamp cannot be recorded, Collect is not saved either. An order with a browser id attaches the stamp to that browser's card at this restaurant. The card keeps the stamp goal and reward text from the moment it is created. An order with no browser id stores the stamp without a card. The next status poll that stores a browser id for the first time, within 24 hours of `collected_at`, attaches that stamp and creates the card from the program as it is then. A poll after 24 hours, a second poll, or a different browser id leaves the stamp unassigned. The status poll adds `loyalty_stamp_added` and no stamp identifier. A poll that finds the browser id already stored does not attach again. If that attach fails, the error is logged, the poll still returns `200`, and the stamp stays unassigned. Turning the plan flag off or disabling the program stops new stamps and stops this attach immediately. Stamps already recorded stay. A reward already earned can still be redeemed while the program is off. Redeem stops when the plan flag is off. See `POST /loyalty/redeem`.
+
+### `POST /loyalty/redeem`
+
+A cashier bearer token. This route is inside the cashier role. An owner or a platform admin receives `403` and `{ "message": "forbidden" }`. A restaurant whose plan has `loyalty` set to false receives `403` and `{ "message": "feature_unavailable" }`.
+
+```json
+{
+  "code": "048213"
+}
+```
+
+`code` is the 6 digits from the customer's claim. The cashier's restaurant must be the one that issued it.
+
+`200` spends one full goal of the oldest unspent stamps on that card. Stamps with no card are never spent. The reward text and goal are the card's snapshot at this moment. `stamps_remaining` is the unspent stamps left after this redeem. The response has no browser id.
+
+```json
+{
+  "id": 4,
+  "stamps_required": 6,
+  "reward_text_ar": "قهوة مجانية",
+  "reward_text_en": "A free coffee",
+  "stamps_remaining": 7
+}
+```
+
+`id` is the redemption. Show the reward text to the cashier. Do not show `id` to the customer.
+
+A wrong code, an expired code, a used code, and another restaurant's code are all `409` and `{ "message": "invalid_code" }`. Use that same sentence in the UI. A second redeem of a code that just succeeded is the same error.
+
+Redeem still works when the owner has turned the program off. It does not work when the plan flag is off.
+
+After a successful redeem, the card keeps its snapshot while the remaining stamps still complete another reward. When they do not, and the program is enabled, the card takes the program's current goal and reward text for the next cycle. Thirteen unspent stamps on a goal of 6 leave 7, so the snapshot stays and one reward is still waiting. Exactly 6 unspent, with the program now set to 8, leaves 0 and the card becomes 8 with the new reward text. The redeem response still describes the reward that was just handed over.
+
+More than 10 redeems per minute for the same cashier returns `429` and `{ "message": "Too Many Attempts." }`. The limit is per cashier account, not per IP.
 
 ### `POST /orders/{order}/cancel`
 
@@ -639,6 +683,110 @@ Send only the fields that change. A missing field stays as it is. Send `null` to
 
 A value that is not a Facebook link, an Instagram link, or a phone number is `422`.
 
+### `GET /restaurant/loyalty`
+
+The owner reads the loyalty program for the restaurant on the token. A cashier or a platform admin receives `403` and `{ "message": "forbidden" }`. A restaurant whose plan has `loyalty` set to false receives `403` and `{ "message": "feature_unavailable" }`. Stats and contact stay available in that case.
+
+`200` before the owner has saved a program. This response does not create a row.
+
+```json
+{
+  "enabled": false,
+  "stamps_required": null,
+  "reward_text_ar": null,
+  "reward_text_en": null
+}
+```
+
+The response has no `id`, no `restaurant_id`, and no customer identifier.
+
+### `PATCH /restaurant/loyalty`
+
+Send only the fields that change. A missing field stays as it is. `restaurant_id` in the body is ignored. The program is always the one for the owner on the token.
+
+```json
+{
+  "enabled": true,
+  "stamps_required": 6,
+  "reward_text_ar": "القهوة السابعة مجاناً",
+  "reward_text_en": "The seventh coffee is free"
+}
+```
+
+| Field | Rule |
+|---|---|
+| `enabled` | Optional. Boolean. Default `false` until a program is saved. |
+| `stamps_required` | Integer from 3 to 15. Required to create the program and to turn it on. |
+| `reward_text_ar` | Required to create the program and to turn it on. String, max 255. Blank is rejected. |
+| `reward_text_en` | Optional. String, max 255. Blank or `null` stores `null`. |
+
+The first save must include `stamps_required` and `reward_text_ar`. `enabled` can stay `false`. A later request may change one field. `{ "enabled": false }` before a program exists returns the same default as GET and still creates no row. `{ "enabled": true }` is `422` until the merged program has a stamp goal and Arabic reward text.
+
+`200` is the saved program, the same shape as GET. One restaurant has one program. A second save updates that row.
+
+Changing `stamps_required` or either reward text applies to cards created after the change, and to the next cycle of a card that already exists. A cycle that is already open keeps the goal and the reward text it started with. Turning `enabled` off stops new stamps. A reward that was already earned can still be redeemed, and a card that is part way through a cycle keeps its progress. The public card read returns that open cycle. Redeem spends one goal and then, when no further reward is waiting and the program is enabled, copies the current goal and reward text onto the card. This route does not change orders or Collect.
+
+A goal outside 3 to 15, a missing Arabic reward, or a text longer than 255 characters is `422`.
+
+### `GET /restaurant/loyalty/summary`
+
+The owner reads counts for the restaurant on the token. Use them in the warning before turning the program off. A cashier receives `403` and `{ "message": "forbidden" }`. A restaurant whose plan has `loyalty` set to false receives `403` and `{ "message": "feature_unavailable" }`.
+
+```json
+{
+  "cards": 3,
+  "stamps_given": 25,
+  "redemptions": 1,
+  "partial_cards": 1,
+  "unredeemed_rewards": 2,
+  "unassigned_stamps": 2
+}
+```
+
+`cards` is every card. `stamps_given` is every stamp, including stamps with no card and stamps already redeemed. `redemptions` is how many rewards were handed over. `partial_cards` is cards that have unspent stamps but not enough for a reward. `unredeemed_rewards` adds up, for each card, the unspent stamps divided by that card's goal, rounded down. A card with 13 unspent stamps and a goal of 6 contributes 2. `unassigned_stamps` is stamps with no card. The response has no browser id and no card id.
+
+### `GET /restaurant/loyalty/activity`
+
+The same owner and the same `403` rules as the summary. Newest first. Pass `page` to move through the lists. Each page has 20 stamps and 20 redemptions. The response has no browser id and no card id.
+
+```json
+{
+  "stamps": {
+    "current_page": 1,
+    "per_page": 20,
+    "last_page": 2,
+    "total": 25,
+    "data": [
+      {
+        "order_number": "0010",
+        "cashier_name": "Sara",
+        "collected_at": "2026-11-08T14:00:10.000000Z",
+        "seconds_to_collect": 10,
+        "assigned": true,
+        "fast_collect": true
+      }
+    ]
+  },
+  "redemptions": {
+    "current_page": 1,
+    "per_page": 20,
+    "last_page": 1,
+    "total": 1,
+    "data": [
+      {
+        "cashier_name": "unknown",
+        "created_at": "2026-11-08T15:00:00.000000Z",
+        "reward_text_ar": "قهوة مجانية",
+        "reward_text_en": "A free coffee",
+        "stamps_spent": 6
+      }
+    ]
+  }
+}
+```
+
+`cashier_name` is `unknown` when the cashier was not recorded or the account was deleted. `assigned` is true when the stamp is on a card. `seconds_to_collect` is the seconds from the order's creation to `collected_at`, or `null` when the stamp has no order. `fast_collect` is true when that duration is under 30 seconds. `order_number` and `collected_at` are `null` when the stamp has no order.
+
 ## Restaurant menu
 
 A cashier and an owner use the same routes. A platform admin receives `403` and `{ "message": "forbidden" }`. An inactive account or restaurant receives `403` and `{ "message": "inactive" }`. A restaurant with no current subscription receives `403` and `{ "message": "subscription_inactive" }`. A restaurant whose plan has `menu` set to false receives `403` and `{ "message": "feature_unavailable" }`.
@@ -784,8 +932,8 @@ Customer routes:
 
 | Page | Calls |
 |---|---|
-| `/r/{slug}` from the shared restaurant QR | `GET /public/restaurants/{slug}`, `GET /public/restaurants/{slug}/menu`, then `POST /public/restaurants/{slug}/register`, then open `/o/{token}` |
-| `/o/{token}` from a per-order QR or from register | `GET /public/orders/{token}` every 4 seconds, and the push-subscription routes after the customer allows notifications |
+| `/r/{slug}` from the shared restaurant QR | `GET /public/restaurants/{slug}`, `GET /public/restaurants/{slug}/menu`, `GET /public/restaurants/{slug}/loyalty-card` when `loyalty` is true, then `POST /public/restaurants/{slug}/register`, then open `/o/{token}` |
+| `/o/{token}` from a per-order QR or from register | `GET /public/orders/{token}` every 4 seconds, `GET /public/restaurants/{slug}/loyalty-card` when `loyalty` is true, and the push-subscription routes after the customer allows notifications |
 
 A missing restaurant, an inactive restaurant, or a restaurant with no current subscription is `404` and `{ "message": "Not found." }`. Treat that status as not found. Do not parse `message` to tell those cases apart. An already issued `/o/{token}` link still returns the order status.
 
@@ -795,27 +943,111 @@ A missing restaurant, an inactive restaurant, or a restaurant with no current su
 
 ```json
 {
-  "name": "Shawarma House",
+  "name": "بيت الشاورما",
+  "name_en": "Shawarma House",
   "icon_url": null,
   "facebook_url": "https://facebook.com/shawarmahouse",
   "instagram_url": null,
   "phone": "+963944123456",
+  "primary_color": "#4a0418",
+  "secondary_color": "#f4e8d0",
   "features": {
     "pager": true,
     "menu": true,
     "ordering": false,
-    "kitchen": false
+    "kitchen": false,
+    "loyalty": false
   }
 }
 ```
+
+`name` is the Arabic name. `name_en` is the English name, or `null` when the restaurant has none. Show `name`. Use `name_en` when the customer has switched the page to English and it is not `null`.
+
+`primary_color` and `secondary_color` are lowercase `#rrggbb`, or `null`. Use them as the restaurant theme, for example as `--primary` and `--secondary`. When a color is `null`, use the default color for that role. The API does not send text colors. Pick text that stays readable on each color.
 
 `icon_url` is an absolute URL when the restaurant has an icon, and `null` when it does not. Use it as an image address. The image itself is `GET /public/restaurants/{slug}/icon`. That response is the file bytes, not JSON. A restaurant with no icon is `404`.
 
 `facebook_url`, `instagram_url`, and `phone` are the restaurant's public contact details. Each is `null` until an admin or an owner sets it. Show a link or a call button only when the value is not `null`.
 
-`features` says which parts this restaurant has. Show the menu when `menu` is true. Show the order-number field when `pager` is true. `ordering` and `kitchen` are reserved for later screens. Hide a part when its flag is false.
+`features` says which parts this restaurant has. Show the menu when `menu` is true. Show the order-number field when `pager` is true. `ordering` and `kitchen` are reserved for later screens. `loyalty` is `false` until the plan includes it, and it can be `true` only together with `pager`. When it is `true`, read the stamp card from `GET /public/restaurants/{slug}/loyalty-card`. Hide a part when its flag is false.
 
 `{slug}` is the restaurant slug. Letter case in the URL does not matter.
+
+### `GET /public/restaurants/{slug}/loyalty-card`
+
+No bearer token. Send the same browser id the order poll sends:
+
+```http
+X-Visitor-Id: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
+```
+
+This route only reads. It never creates a card, a stamp, or any other row. A missing or invalid `X-Visitor-Id` is the same as a browser that has no card yet.
+
+A missing restaurant, an inactive restaurant, a restaurant with no current subscription, or a restaurant whose `loyalty` flag is off is `404` and `{ "message": "Not found." }`.
+
+`200` when `loyalty` is on. The response has no `visitor_id` and no internal id.
+
+No card yet, and the program is enabled. The goal and reward text are the program's current offer. Both counts are `0`.
+
+```json
+{
+  "state": "none",
+  "stamps_required": 6,
+  "reward_text_ar": "قهوة مجانية",
+  "reward_text_en": "A free coffee",
+  "stamps_in_cycle": 0,
+  "pending_rewards": 0
+}
+```
+
+No card yet, and the program is missing or disabled. The offer fields are `null`.
+
+```json
+{
+  "state": "none",
+  "stamps_required": null,
+  "reward_text_ar": null,
+  "reward_text_en": null,
+  "stamps_in_cycle": 0,
+  "pending_rewards": 0
+}
+```
+
+A card whose program is enabled. `stamps_required` and both reward texts come from the card, not from a later program edit. `stamps_in_cycle` is the unspent stamps modulo that goal. `pending_rewards` is the unspent stamps divided by that goal, rounded down. A stamp with `redemption_id` set, or a stamp that has no card, is not counted. Thirteen unspent stamps on a goal of 6 is `pending_rewards` `2` and `stamps_in_cycle` `1`.
+
+```json
+{
+  "state": "active",
+  "stamps_required": 6,
+  "reward_text_ar": "قهوة مجانية",
+  "reward_text_en": "A free coffee",
+  "stamps_in_cycle": 1,
+  "pending_rewards": 2
+}
+```
+
+A card whose program is missing or disabled. Progress stays where it was, and a reward already earned stays visible. `state` is `paused`. The same card fields are returned.
+
+More than 120 requests per minute from the same IP for the same restaurant returns `429` and `{ "message": "Too Many Attempts." }`.
+
+### `POST /public/restaurants/{slug}/loyalty-card/claim-code`
+
+No bearer token. Send the same `X-Visitor-Id` as the card read. No body.
+
+Call this when `pending_rewards` is at least 1, including while the card is `paused`. A missing or invalid browser id, a browser with no card, or a card with no reward ready is `409` and `{ "message": "no_reward" }`. The same `404` rules as the card read apply: unknown slug, inactive, no current subscription, or `loyalty` off.
+
+`200` creates one 6-digit code and invalidates any earlier code for this card. The code lasts 90 seconds. The response has no browser id and no internal id.
+
+```json
+{
+  "code": "048213",
+  "expires_at": "2026-11-08T15:01:30.000000Z"
+}
+```
+
+The cashier types `code`. Create a code only when the customer taps the button, and show the countdown from `expires_at`. Do not refresh the code on a timer or when the page reloads. A new code invalidates the previous one, so a refresh while the cashier is typing makes that code fail.
+
+More than 10 requests per minute from the same IP for the same restaurant returns `429` and `{ "message": "Too Many Attempts." }`. Customers on the same network share that limit. Codes older than a day are deleted.
 
 ### `GET /public/restaurants/{slug}/menu`
 
@@ -903,7 +1135,7 @@ Send the stored browser id on this request too, including while polling:
 X-Visitor-Id: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
 ```
 
-A valid id is saved when the order does not have one yet. An invalid header is ignored, and the status response stays `200`. The JSON does not include the id.
+A valid id is saved when the order does not have one yet, including after the order is `collected`. An invalid header is ignored, and the status response stays `200`. The JSON does not include the id. Saving a new id on a `collected` order within 24 hours of `collected_at` can attach an unassigned stamp. The poll locks the order before writing the id, so a Collect that commits while that request is in flight still attaches. Later polls do not attach again. If that locked write or the attach fails, the error is logged, this request still returns `200`, the browser id from that attempt is not kept, and the stamp stays unassigned.
 
 `200`
 
@@ -911,9 +1143,12 @@ A valid id is saved when the order does not have one yet. An invalid header is i
 {
   "restaurant_name": "Shawarma House",
   "order_number": "0047",
-  "status": "waiting"
+  "status": "waiting",
+  "loyalty_stamp_added": false
 }
 ```
+
+`loyalty_stamp_added` is `true` only when `status` is `collected`, the restaurant's `loyalty` flag is on, this request's `X-Visitor-Id` is the browser stored on the order, and this order's stamp is attached to a card. An unassigned stamp, a missing header, or a different browser is `false`. The JSON still has no card id and no browser id. A `waiting` or `ready` poll does not look for a stamp. A collected order at a restaurant with `loyalty` off does not look either. A browser that does not match the stored id does not look either.
 
 `status` stays available after the order is `collected`, `cancelled`, `expired`, or `uncollected`, so the page can show the final state. Poll every 4 seconds until one of those.
 
@@ -1044,6 +1279,7 @@ Show the notification from `restaurant_name` and `message`. A click opens `url`.
   "is_active": true,
   "restaurant": {
     "name": "Shawarma House",
+    "name_en": null,
     "slug": "shawarma-house",
     "preferred_qr_mode": "shared",
     "timezone": "Asia/Damascus",
@@ -1051,11 +1287,14 @@ Show the notification from `restaurant_name` and `message`. A click opens `url`.
     "facebook_url": null,
     "instagram_url": null,
     "phone": null,
+    "primary_color": null,
+    "secondary_color": null,
     "features": {
       "pager": true,
       "menu": false,
       "ordering": false,
-      "kitchen": false
+      "kitchen": false,
+      "loyalty": false
     },
     "subscription_ends_at": "2026-12-01T12:00:00.000000Z",
     "subscription_is_current": true
@@ -1063,7 +1302,7 @@ Show the notification from `restaurant_name` and `message`. A click opens `url`.
 }
 ```
 
-`restaurant` is `null` for a platform admin, and `restaurant_role` is `null` too. A restaurant user has `restaurant_role` `cashier` or `owner`. `preferred_qr_mode` is `shared` or `per_order`. It only changes what the cashier screen should emphasize. Both QR flows will exist for every restaurant. `subscription_is_current` is false when the restaurant's period is missing or over. `features` is copied from the restaurant's plan. Hide cashier screens when `pager` is false. Hide the menu and banner screens when `menu` is false. A call to a hidden screen returns `403` and `{ "message": "feature_unavailable" }`.
+`restaurant` is `null` for a platform admin, and `restaurant_role` is `null` too. A restaurant user has `restaurant_role` `cashier` or `owner`. `preferred_qr_mode` is `shared` or `per_order`. It only changes what the cashier screen should emphasize. Both QR flows will exist for every restaurant. `subscription_is_current` is false when the restaurant's period is missing or over. `features` is copied from the restaurant's plan. Hide cashier screens when `pager` is false. Hide the menu and banner screens when `menu` is false. A call to a hidden screen returns `403` and `{ "message": "feature_unavailable" }`. `loyalty` is `false` by default. Hide the owner loyalty screen while it is `false`. `GET` and `PATCH /restaurant/loyalty` then return `403` and `{ "message": "feature_unavailable" }`.
 
 ### Subscription plan
 
@@ -1079,11 +1318,12 @@ Show the notification from `restaurant_name` and `message`. A click opens `url`.
   "pager": true,
   "menu": false,
   "ordering": false,
-  "kitchen": false
+  "kitchen": false,
+  "loyalty": false
 }
 ```
 
-`interval` is `month`, `year`, or `trial`. `duration_days` is set only for `trial`. `ordering` is never true while `menu` is false. Sending that combination is `422` and `Ordering requires the menu.`
+`interval` is `month`, `year`, or `trial`. `duration_days` is set only for `trial`. `ordering` is never true while `menu` is false. Sending that combination is `422` and `Ordering requires the menu.` `loyalty` is never true while `pager` is false. Sending that combination is `422` and `Loyalty requires the pager.`
 
 ### Restaurant
 
@@ -1091,6 +1331,7 @@ Show the notification from `restaurant_name` and `message`. A click opens `url`.
 {
   "id": 1,
   "name": "Shawarma House",
+  "name_en": null,
   "slug": "shawarma-house",
   "preferred_qr_mode": "shared",
   "timezone": "Asia/Damascus",
@@ -1100,11 +1341,14 @@ Show the notification from `restaurant_name` and `message`. A click opens `url`.
   "facebook_url": null,
   "instagram_url": null,
   "phone": null,
+  "primary_color": null,
+  "secondary_color": null,
   "features": {
     "pager": true,
     "menu": false,
     "ordering": false,
-    "kitchen": false
+    "kitchen": false,
+    "loyalty": false
   },
   "subscription": {
     "plan_id": 1,
@@ -1116,6 +1360,8 @@ Show the notification from `restaurant_name` and `message`. A click opens `url`.
   }
 }
 ```
+
+`name` is the Arabic name. `name_en` is the optional English name. `primary_color` and `secondary_color` are lowercase `#rrggbb` or `null`. A value that is not a hex color is `422`. The public restaurant and the restaurant on a user include the same four fields.
 
 ## Errors
 
@@ -1132,7 +1378,7 @@ Validation failures are `422`:
 }
 ```
 
-Read `errors` for the field. `message` on a `422` is an English sentence, not a code. On `401`, `403`, and `429`, `message` is the code in the tables above, except Laravel's `Unauthenticated.` and `Too Many Attempts.` strings. `feature_unavailable` means the restaurant's plan does not include that part. On `404`, `message` is `Not found.` or `order_unavailable`. On `409`, `message` is `invalid_status`, `already_reviewed`, `order_link_limit`, `subscription_limit`, `plan_in_use`, `category_not_empty`, or `banner_limit`. `subscription_limit` is the push cap. `plan_in_use` means a subscription plan still belongs to a restaurant. `category_not_empty` means a menu category still has items. `banner_limit` means the restaurant already has 5 banners. `subscription_inactive` is a `403`, not a `409`.
+Read `errors` for the field. `message` on a `422` is an English sentence, not a code. On `401`, `403`, and `429`, `message` is the code in the tables above, except Laravel's `Unauthenticated.` and `Too Many Attempts.` strings. `feature_unavailable` means the restaurant's plan does not include that part. On `404`, `message` is `Not found.` or `order_unavailable`. On `409`, `message` is `invalid_status`, `invalid_code`, `no_reward`, `already_reviewed`, `order_link_limit`, `subscription_limit`, `plan_in_use`, `category_not_empty`, or `banner_limit`. `invalid_code` is the cashier redeem error for a wrong, expired, used, or other-restaurant code. `no_reward` means the card has no reward ready to claim. `subscription_limit` is the push cap. `plan_in_use` means a subscription plan still belongs to a restaurant. `category_not_empty` means a menu category still has items. `banner_limit` means the restaurant already has 5 banners. `subscription_inactive` is a `403`, not a `409`.
 
 ## Order
 
