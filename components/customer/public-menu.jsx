@@ -8,7 +8,7 @@ import { customerCopy } from "@/lib/customer/public";
 import { restaurantTitle } from "@/lib/theme/restaurant-theme";
 import { categoryIndexAtMarker } from "@/lib/customer/public-menu";
 import { formatPrice } from "@/lib/menu/menu";
-import { Article, Funnel, Tag } from "@phosphor-icons/react";
+import { Funnel } from "@phosphor-icons/react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 function useAsset(src) {
@@ -248,103 +248,38 @@ function menuCards(groups) {
   );
 }
 
-function ItemDialog({ item, related, restaurantName, iconUrl, onOpen, onClose, lang }) {
-  const reduceMotion = useReducedMotion();
-  const bodyRef = useRef(null);
+function ItemDialog({ item, onClose, lang }) {
   const price = item.price === null ? "" : formatPrice(item.price);
   const itemName = localized(item.name, lang);
   const descriptionText = localized(item.description, lang);
   const description = descriptionText && descriptionText.trim() !== itemName.trim() ? descriptionText : "";
 
-  useEffect(() => {
-    bodyRef.current?.parentElement?.scrollTo(0, 0);
-  }, [item.key]);
-
   return (
     <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
-      <DialogContent page hideClose closeLabel={phrase("menuClose", lang)} dir={lang === "en" ? "ltr" : "rtl"} className="gap-0 bg-white p-0 font-detail">
-        <header className="sticky top-0 z-10 flex items-center gap-2 border-b border-black/5 bg-white px-2 py-2">
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label={phrase("menuClose", lang)}
-            className="inline-flex size-10 shrink-0 cursor-pointer items-center justify-center rounded-full text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
-          >
-            <BackIcon />
-          </button>
-          <div className="flex min-w-0 items-center gap-2">
-            {iconUrl ? <img src={iconUrl} alt="" className="size-8 shrink-0 rounded-full object-cover" /> : null}
-            {restaurantName ? <p className="truncate text-sm font-semibold text-ink">{restaurantName}</p> : null}
-          </div>
-        </header>
-        <motion.div
-          ref={bodyRef}
-          key={item.key}
-          initial={reduceMotion ? false : { opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: reduceMotion ? 0 : 0.2 }}
-        >
-          <div className="relative bg-soft">
-            <RoundPhoto src={item.photoUrl} label={itemName} className="aspect-[4/3] w-full text-5xl" />
-            <ItemBadge badge={item.badge} lang={lang} />
-          </div>
-          <div className="relative -mt-6 rounded-t-3xl bg-white px-5 pt-6 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
-            <DialogHeader className="items-stretch gap-3 text-start">
-              <DialogTitle className="text-start font-detail text-[1.85rem] leading-10 font-bold text-burgundy-deep">
-                {itemName}
-              </DialogTitle>
-              <span aria-hidden="true" className="block h-1 w-12 rounded-full bg-gold" />
-              <DialogDescription className={description ? "flex items-start gap-1.5 text-start text-sm leading-7 text-ink/55" : "sr-only"}>
-                {description ? <Article size={16} weight="regular" className="mt-0.5 shrink-0 text-gold" aria-hidden="true" /> : null}
-                <span className="min-w-0 whitespace-pre-line">{description || itemName}</span>
-              </DialogDescription>
-            </DialogHeader>
-            <div className="mt-6">
-              <p className="flex items-center gap-1.5 text-sm font-medium text-ink/50">
-                <Tag size={16} weight="regular" className="shrink-0 text-gold" aria-hidden="true" />
-                {phrase("menuPriceLabel", lang)}
-              </p>
-              {price ? (
-                <p className="mt-2 inline-flex items-baseline gap-1.5 rounded-2xl border border-gold bg-white px-3.5 py-1.5">
-                  <span dir="ltr" translate="no" className="font-detail text-3xl font-bold text-burgundy">
-                    {price}
-                  </span>
-                  <span className="text-base font-semibold text-burgundy/60">{phrase("currency", lang)}</span>
-                </p>
-              ) : null}
-            </div>
-            {related.length > 0 ? (
-              <div className="mt-8 border-t border-black/10 pt-6">
-                <h3 className="text-base font-bold text-ink">{phrase("menuSuggested", lang)}</h3>
-                <ul className="mt-3 -mx-5 flex gap-3 overflow-x-auto px-5 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                  {related.map((other) => {
-                    const otherPrice = other.price === null ? "" : formatPrice(other.price);
-                    return (
-                      <li key={other.key} className="w-36 shrink-0">
-                        <button
-                          type="button"
-                          onClick={() => onOpen(other)}
-                          className="flex w-full cursor-pointer flex-col items-center rounded-2xl border border-burgundy/15 bg-white p-1.5 text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
-                        >
-                          <RoundPhoto src={other.photoUrl} label={localized(other.name, lang)} className="aspect-square w-full rounded-2xl text-2xl" />
-                          <span className="mt-2 line-clamp-2 w-full px-1 text-center text-sm font-semibold text-ink">{localized(other.name, lang)}</span>
-                          {otherPrice ? (
-                            <span className="mt-2 flex w-full items-baseline justify-center gap-1 border-t border-black/10 pt-1.5">
-                              <span dir="ltr" translate="no" className="font-detail text-sm font-bold text-burgundy">
-                                {otherPrice}
-                              </span>
-                              <span className="text-[11px] font-semibold text-ink/45">{phrase("currency", lang)}</span>
-                            </span>
-                          ) : null}
-                        </button>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </div>
-            ) : null}
-          </div>
-        </motion.div>
+      <DialogContent
+        closeLabel={phrase("menuClose", lang)}
+        dir={lang === "en" ? "ltr" : "rtl"}
+        className="max-h-[min(40rem,calc(100dvh-2rem))] gap-0 overflow-y-auto bg-white p-0 font-detail"
+      >
+        <div className="relative bg-soft">
+          <RoundPhoto src={item.photoUrl} label={itemName} className="aspect-[4/3] w-full text-5xl" />
+          <ItemBadge badge={item.badge} lang={lang} />
+        </div>
+        <div className="px-5 pt-5 pb-6">
+          <DialogHeader className="items-stretch gap-2 text-start">
+            <DialogTitle className="text-start font-detail text-2xl leading-8 font-bold text-burgundy">
+              {itemName}
+            </DialogTitle>
+            <DialogDescription className={description ? "text-start text-sm leading-7 whitespace-pre-line text-ink/60" : "sr-only"}>
+              {description || itemName}
+            </DialogDescription>
+          </DialogHeader>
+          {price ? (
+            <p className="mt-4 font-sans text-xl font-bold text-burgundy">
+              {phrase("currency", lang)} <span dir="ltr" translate="no">{price}</span>
+            </p>
+          ) : null}
+        </div>
       </DialogContent>
     </Dialog>
   );
@@ -958,15 +893,7 @@ export function PublicMenu({ name, nameEn = "", iconUrl, contact = null, banners
         />
       ) : null}
       {detail ? (
-        <ItemDialog
-          item={detail}
-          related={cards.filter((card) => card.key !== detail.key && card.sourceIndex === detail.sourceIndex).slice(0, 8)}
-          restaurantName={shownName}
-          iconUrl={iconUrl}
-          lang={lang}
-          onOpen={setDetail}
-          onClose={() => setDetail(null)}
-        />
+        <ItemDialog item={detail} lang={lang} onClose={() => setDetail(null)} />
       ) : null}
     </div>
   );

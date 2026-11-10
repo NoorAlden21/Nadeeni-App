@@ -136,19 +136,13 @@ function Note({ children }) {
   return <p className="mt-4 rounded-2xl bg-ivory/80 px-4 py-3 text-sm leading-6 text-ink/60">{children}</p>;
 }
 
-export function OwnerCharts({ stats, from, to }) {
+export function OwnerCustomers({ stats, from, to }) {
   const days = Array.isArray(stats?.days) ? stats.days : [];
-  const orders = countOf(stats?.orders);
-  const ready = countOf(stats?.ready_orders);
-  const cancelled = countOf(stats?.cancelled_orders);
-  const uncollected = countOf(stats?.uncollected_orders);
   const fresh = countOf(stats?.new_browsers);
   const returning = countOf(stats?.returning_browsers);
   const browsers = fresh + returning;
-  const scale = Math.max(orders, ready, cancelled, uncollected, 1);
 
   return (
-    <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
       <OwnerSection title="الزبائن" from={from} to={to}>
         <div className="mt-5 grid grid-cols-3 gap-2 sm:gap-3">
           <StatTile label="الإجمالي" value={browsers} accent="burgundy" reserveDetail />
@@ -178,7 +172,17 @@ export function OwnerCharts({ stats, from, to }) {
           الإجمالي هو الزبائن الجدد والعائدون فقط. طلبات بلا زبون: {countOf(stats?.orders_without_browser)}، وهي خارج النسبة. أرقام الأيام لا تساوي مجموع الفترة.
         </Note>
       </OwnerSection>
+  );
+}
 
+export function OwnerOrders({ stats, from, to }) {
+  const orders = countOf(stats?.orders);
+  const ready = countOf(stats?.ready_orders);
+  const cancelled = countOf(stats?.cancelled_orders);
+  const uncollected = countOf(stats?.uncollected_orders);
+  const scale = Math.max(orders, ready, cancelled, uncollected, 1);
+
+  return (
       <OwnerSection title="الطلبات" from={from} to={to}>
         <div className="mt-5 grid items-center gap-4 rounded-[1.25rem] bg-white/90 p-4 ring-1 ring-burgundy/10 sm:grid-cols-[1fr_10rem]">
           <div className="flex flex-col gap-3">
@@ -204,6 +208,5 @@ export function OwnerCharts({ stats, from, to }) {
           <StatTile label="تقييم الطعام" value={formatRating(stats?.average_food_rating)} accent="cream" />
         </div>
       </OwnerSection>
-    </div>
   );
 }

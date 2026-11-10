@@ -5,11 +5,12 @@ import { BrandMark } from "@/components/brand/brand-mark";
 import { ActionButton } from "@/components/cashier/action-button";
 import { apiFetch } from "@/lib/api/client";
 import { QrDialog } from "@/components/cashier/qr-dialog";
-import { OwnerCharts } from "@/components/owner/owner-charts";
+import { OwnerCustomers, OwnerOrders } from "@/components/owner/owner-charts";
 import { OwnerContact } from "@/components/owner/owner-contact";
 import { OwnerReviews } from "@/components/owner/owner-reviews";
 import { RestaurantMenu } from "@/components/menu/restaurant-menu";
-import { ScreenSwitch } from "@/components/menu/screen-switch";
+import { SideNav } from "@/components/menu/screen-switch";
+import { LogOut, Menu, X } from "lucide-react";
 import { qrTargetUrl } from "@/lib/qr/download";
 import { readFeatures } from "@/lib/features";
 import { useRestaurantTheme } from "@/components/theme/use-restaurant-theme";
@@ -30,6 +31,68 @@ function HeaderButton({ children, onClick }) {
   );
 }
 
+function RangeForm({ from, to, busy, onFrom, onTo, onSubmit }) {
+  return (
+    <form
+      onSubmit={onSubmit}
+      className="grid grid-cols-1 gap-4 rounded-[1.5rem] border border-burgundy/5 bg-white p-5 shadow-[0_2px_12px_rgba(0,0,0,0.02)] sm:grid-cols-[1fr_1fr_auto] sm:items-end sm:p-6"
+    >
+      <label htmlFor="range-from" className="block">
+        <span className="mb-2 block text-sm font-bold text-burgundy-deep">من تاريخ</span>
+        <input
+          id="range-from"
+          type="date"
+          dir="ltr"
+          required
+          value={from}
+          onChange={(event) => onFrom(event.target.value)}
+          className={fieldClass}
+        />
+      </label>
+      <label htmlFor="range-to" className="block">
+        <span className="mb-2 block text-sm font-bold text-burgundy-deep">إلى تاريخ</span>
+        <input
+          id="range-to"
+          type="date"
+          dir="ltr"
+          required
+          value={to}
+          onChange={(event) => onTo(event.target.value)}
+          className={fieldClass}
+        />
+      </label>
+      <ActionButton type="submit" disabled={busy} className="h-12 w-full rounded-xl sm:w-32">
+        عرض
+      </ActionButton>
+    </form>
+  );
+}
+
+function RangeError({ message }) {
+  return (
+    <div className="rounded-xl border border-red-100 bg-red-50 p-4">
+      <p role="alert" className="text-center text-sm font-semibold text-red-600">
+        {message}
+      </p>
+    </div>
+  );
+}
+
+function PeriodPanel({ from, to, busy, loaded, error, loading, onFrom, onTo, onSubmit, children }) {
+  return (
+    <>
+      <RangeForm from={from} to={to} busy={busy} onFrom={onFrom} onTo={onTo} onSubmit={onSubmit} />
+      {!loaded ? (
+        <div className="flex items-center justify-center p-10">
+          <p className="animate-pulse text-sm font-medium text-ink/50">{loading}</p>
+        </div>
+      ) : null}
+      {error ? <RangeError message={error} /> : null}
+      {children}
+    </>
+  );
+}
+
 export function OwnerDashboard({ token, user, onUnauthenticated, onInactive }) {
   const timeZone = user.restaurant?.timezone || "Asia/Damascus";
   const initialRange = defaultRange(timeZone);
@@ -41,7 +104,8 @@ export function OwnerDashboard({ token, user, onUnauthenticated, onInactive }) {
   const [loaded, setLoaded] = useState(false);
   const [busy, setBusy] = useState(false);
   const [qr, setQr] = useState(null);
-  const [screen, setScreen] = useState("stats");
+  const [screen, setScreen] = useState("customers");
+  const [navOpen, setNavOpen] = useState(false);
   const [contact, setContact] = useState(null);
   const [menuOff, setMenuOff] = useState(false);
   const onUnauthenticatedRef = useRef(onUnauthenticated);
@@ -49,11 +113,35 @@ export function OwnerDashboard({ token, user, onUnauthenticated, onInactive }) {
   const theme = useRestaurantTheme(user?.restaurant);
   const menuOn = readFeatures(user.restaurant).menu && !menuOff;
   const screens = [
-    { id: "stats", label: "الإحصاءات" },
+    { id: "orders", label: "الطلبات" },
+    { id: "customers", label: "الزبائن" },
+    { id: "reviews", label: "تقييمات الزبائن" },
     { id: "contact", label: "التواصل" },
     menuOn ? { id: "menu", label: "القائمة" } : null,
   ].filter(Boolean);
-  const visible = screens.some((item) => item.id === screen) ? screen : "stats";
+  const visible = screens.some((item) => item.id === screen) ? screen : "customers";
+  const showNav = screens.length > 1;
+  const sectionTitle = screens.find((item) => item.id === visible)?.label || "الزبائن";
+
+  useEffect(() => {
+    if (!navOpen) {
+      return undefined;
+    }
+
+    function onKey(event) {
+      if (event.key === "Escape") {
+        setNavOpen(false);
+      }
+    }
+
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [navOpen]);
+
+  function pickScreen(id) {
+    setScreen(id);
+    setNavOpen(false);
+  }
 
   useEffect(() => {
     onUnauthenticatedRef.current = onUnauthenticated;
@@ -179,15 +267,76 @@ export function OwnerDashboard({ token, user, onUnauthenticated, onInactive }) {
 
   return (
     <div style={theme} className="min-h-dvh overflow-x-clip bg-[#fcfbfc]">
+      {showNav ? (
+        <>
+          {navOpen ? (
+            <button
+              type="button"
+              aria-label="إغلاق الأقسام"
+              className="fixed inset-0 z-30 bg-burgundy-deep/40 md:hidden"
+              onClick={() => setNavOpen(false)}
+            />
+          ) : null}
+          <aside
+            id="owner-nav"
+            className={`${navOpen ? "flex" : "hidden md:flex"} fixed inset-y-0 start-0 z-40 w-64 flex-col border-e border-burgundy/10 bg-paper pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] font-detail`}
+          >
+            <div className="flex items-center gap-3 border-b border-burgundy/10 px-4 py-4">
+              <BrandMark className="h-11 w-11" />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-lg font-bold text-burgundy-deep">لوحة المالك</p>
+                {user.restaurant?.name ? (
+                  <p className="truncate text-sm text-ink/55">{user.restaurant.name}</p>
+                ) : null}
+              </div>
+              <button
+                type="button"
+                aria-label="إغلاق الأقسام"
+                onClick={() => setNavOpen(false)}
+                className="inline-flex size-10 shrink-0 cursor-pointer items-center justify-center rounded-full text-burgundy hover:bg-foam focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold md:hidden"
+              >
+                <X className="size-4" />
+              </button>
+            </div>
+            <div className="px-3 pt-3">
+              <SideNav value={visible} onChange={pickScreen} options={screens} />
+            </div>
+            <div className="mt-auto flex flex-col gap-2 border-t border-burgundy/10 p-3">
+              <button
+                type="button"
+                onClick={onUnauthenticated}
+                className="inline-flex h-11 w-full cursor-pointer items-center justify-start gap-2 rounded-2xl px-3 text-sm font-medium text-ink/55 transition duration-300 hover:bg-foam hover:text-burgundy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
+              >
+                <LogOut className="size-5 shrink-0" aria-hidden="true" />
+                خروج
+              </button>
+            </div>
+          </aside>
+        </>
+      ) : null}
+
+      <div className={showNav ? "md:ps-64" : ""}>
       <header className="sticky top-0 z-20 border-b border-burgundy/5 bg-white pt-[env(safe-area-inset-top)] shadow-sm">
         <div className="mx-auto flex min-h-16 w-full max-w-7xl items-center gap-4 px-4 py-3 sm:min-h-[5rem] sm:px-8">
-          <BrandMark className="h-10 w-10 sm:h-12 sm:w-12" />
+          {showNav ? (
+            <button
+              type="button"
+              aria-expanded={navOpen}
+              aria-controls="owner-nav"
+              onClick={() => setNavOpen(true)}
+              className="inline-flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-2xl text-burgundy ring-1 ring-burgundy/10 hover:bg-foam focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold md:hidden"
+            >
+              <Menu className="size-5" />
+              <span className="sr-only">فتح الأقسام</span>
+            </button>
+          ) : null}
+          <BrandMark className={`h-10 w-10 sm:h-12 sm:w-12 ${showNav ? "md:hidden" : ""}`} />
           <div className="min-w-0">
             <h1 className="truncate font-display text-xl font-bold text-burgundy-deep sm:text-2xl">
-              {visible === "menu" ? "قائمة المطعم" : visible === "contact" ? "بيانات التواصل" : "إحصاءات المطعم"}
+              {sectionTitle}
             </h1>
             {user.restaurant?.name ? (
-              <p className="truncate text-sm font-medium text-ink/50">{user.restaurant.name}</p>
+              <p className={`truncate text-sm font-medium text-ink/50 ${showNav ? "md:hidden" : ""}`}>{user.restaurant.name}</p>
             ) : null}
           </div>
           <div className="ms-auto flex shrink-0 items-center gap-2">
@@ -199,14 +348,9 @@ export function OwnerDashboard({ token, user, onUnauthenticated, onInactive }) {
             >
               رمز المطعم
             </button>
-            <HeaderButton onClick={onUnauthenticated}>تسجيل الخروج</HeaderButton>
+            {showNav ? null : <HeaderButton onClick={onUnauthenticated}>تسجيل الخروج</HeaderButton>}
           </div>
         </div>
-        {screens.length > 1 ? (
-          <div className="mx-auto w-full max-w-7xl px-4 pb-3 sm:px-8">
-            <ScreenSwitch value={visible} onChange={setScreen} options={screens} />
-          </div>
-        ) : null}
       </header>
 
       <main className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 pt-6 pb-[max(2rem,env(safe-area-inset-bottom))] sm:gap-8 sm:px-8 sm:pt-8 sm:pb-12">
@@ -225,68 +369,61 @@ export function OwnerDashboard({ token, user, onUnauthenticated, onInactive }) {
             onUnauthenticated={onUnauthenticated}
             onInactive={onInactive}
           />
+        ) : visible === "orders" ? (
+          <PeriodPanel
+            from={from}
+            to={to}
+            busy={busy}
+            loaded={loaded}
+            error={error}
+            loading="يتم تحميل الطلبات..."
+            onFrom={setFrom}
+            onTo={setTo}
+            onSubmit={handleSubmit}
+          >
+            {stats ? <OwnerOrders stats={stats} from={stats.from || from} to={stats.to || to} /> : null}
+          </PeriodPanel>
+        ) : visible === "reviews" ? (
+          <PeriodPanel
+            from={from}
+            to={to}
+            busy={busy}
+            loaded={loaded}
+            error={error}
+            loading="يتم تحميل التقييمات..."
+            onFrom={setFrom}
+            onTo={setTo}
+            onSubmit={handleSubmit}
+          >
+            {reviews ? (
+              <OwnerReviews
+                reviews={reviews}
+                timeZone={stats?.timezone || timeZone}
+                from={reviews.from || stats?.from || from}
+                to={reviews.to || stats?.to || to}
+              />
+            ) : loaded && !error ? (
+              <p className="rounded-2xl bg-ivory/80 px-4 py-3 text-sm text-ink/60">تعذر تحميل التقييمات.</p>
+            ) : null}
+          </PeriodPanel>
         ) : (
-          <>
-        <form
-          onSubmit={handleSubmit}
-          className="grid grid-cols-1 gap-4 rounded-[1.5rem] bg-white p-5 shadow-[0_2px_12px_rgba(0,0,0,0.02)] border border-burgundy/5 sm:grid-cols-[1fr_1fr_auto] sm:items-end sm:p-6"
-        >
-          <label htmlFor="stats-from" className="block">
-            <span className="mb-2 block text-sm font-bold text-burgundy-deep">من تاريخ</span>
-            <input
-              id="stats-from"
-              type="date"
-              dir="ltr"
-              required
-              value={from}
-              onChange={(event) => setFrom(event.target.value)}
-              className={fieldClass}
-            />
-          </label>
-          <label htmlFor="stats-to" className="block">
-            <span className="mb-2 block text-sm font-bold text-burgundy-deep">إلى تاريخ</span>
-            <input
-              id="stats-to"
-              type="date"
-              dir="ltr"
-              required
-              value={to}
-              onChange={(event) => setTo(event.target.value)}
-              className={fieldClass}
-            />
-          </label>
-          <ActionButton type="submit" disabled={busy} className="h-12 w-full sm:w-32 rounded-xl">
-            عرض
-          </ActionButton>
-        </form>
-
-        {!loaded ? (
-          <div className="flex items-center justify-center p-10">
-            <p className="text-sm font-medium text-ink/50 animate-pulse">يتم تحميل الإحصاءات...</p>
-          </div>
-        ) : null}
-        
-        {error ? (
-          <div className="rounded-xl bg-red-50 p-4 border border-red-100">
-            <p role="alert" className="text-sm font-semibold text-red-600 text-center">
-              {error}
-            </p>
-          </div>
-        ) : null}
-
-        {stats ? <OwnerCharts stats={stats} from={stats.from || from} to={stats.to || to} /> : null}
-        {reviews ? (
-          <OwnerReviews
-            reviews={reviews}
-            timeZone={stats?.timezone || timeZone}
-            from={reviews.from || stats?.from || from}
-            to={reviews.to || stats?.to || to}
-          />
-        ) : null}
-          </>
+          <PeriodPanel
+            from={from}
+            to={to}
+            busy={busy}
+            loaded={loaded}
+            error={error}
+            loading="يتم تحميل الزبائن..."
+            onFrom={setFrom}
+            onTo={setTo}
+            onSubmit={handleSubmit}
+          >
+            {stats ? <OwnerCustomers stats={stats} from={stats.from || from} to={stats.to || to} /> : null}
+          </PeriodPanel>
         )}
       </main>
       <QrDialog qr={qr} onDismiss={() => setQr(null)} />
+      </div>
     </div>
   );
 }

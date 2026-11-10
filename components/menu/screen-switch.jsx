@@ -1,10 +1,13 @@
 "use client";
 
-import { ClipboardList, UtensilsCrossed } from "lucide-react";
+import { ClipboardList, Phone, Star, Users, UtensilsCrossed } from "lucide-react";
 
 const sideIcons = {
   orders: ClipboardList,
+  customers: Users,
   menu: UtensilsCrossed,
+  reviews: Star,
+  contact: Phone,
 };
 
 export function SideNav({ value, onChange, options }) {
