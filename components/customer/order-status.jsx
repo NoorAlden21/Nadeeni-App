@@ -11,9 +11,13 @@ import {
   isFinalStatus,
   publicErrorText,
   readOrderIcon,
-  readVisitorId,
+  readOrderRestaurantSlug,
+  rememberOrderSlug,
+  rememberRestaurantSlug,
   vapidKeyBytes,
+  visitorHeaders,
 } from "@/lib/customer/public";
+import { CustomerLoyalty } from "@/components/customer/customer-loyalty";
 import { playReadyAlert, primeReadyAlert } from "@/lib/customer/ready-alert";
 import { readStoredTheme } from "@/lib/theme/restaurant-theme";
 import { useRestaurantTheme } from "@/components/theme/use-restaurant-theme";
@@ -74,6 +78,7 @@ export function OrderStatus({ token }) {
   const [iconUrl, setIconUrl] = useState("");
   const [iphone, setIphone] = useState(false);
   const [reviewed, setReviewed] = useState(false);
+  const [restaurantSlug, setRestaurantSlug] = useState("");
   const seenStatus = useRef(null);
   const alerted = useRef(false);
   const gameWasOpen = useRef(false);
@@ -100,12 +105,10 @@ export function OrderStatus({ token }) {
     let stopped = false;
     let finished = false;
     let timer = 0;
-    const visitorId = readVisitorId();
-
     async function load() {
       try {
         const next = await apiFetch(`/public/orders/${encodeURIComponent(token)}`, {
-          headers: visitorId ? { "X-Visitor-Id": visitorId } : undefined,
+          headers: visitorHeaders(),
         });
         if (stopped) {
           return;
@@ -185,6 +188,18 @@ export function OrderStatus({ token }) {
   }, [token]);
 
   useEffect(() => {
+    if (!order) {
+      return;
+    }
+    const next = readOrderRestaurantSlug(token, order.restaurant_name, order.slug);
+    if (next) {
+      rememberOrderSlug(token, next);
+      rememberRestaurantSlug(order.restaurant_name, next);
+    }
+    setRestaurantSlug(next);
+  }, [token, order?.restaurant_name, order?.slug]);
+
+  useEffect(() => {
     if (order?.status && order.status !== "waiting" && gameWasOpen.current) {
       gameWasOpen.current = false;
       window.scrollTo(0, 0);
@@ -242,10 +257,9 @@ export function OrderStatus({ token }) {
           applicationServerKey: vapidKeyBytes(key),
         }));
 
-      const visitorId = readVisitorId();
       await apiFetch(`/public/orders/${encodeURIComponent(token)}/push-subscriptions`, {
         method: "POST",
-        headers: visitorId ? { "X-Visitor-Id": visitorId } : undefined,
+        headers: visitorHeaders(),
         body: subscription.toJSON(),
       });
       setPushNote(customerCopy.pushAsked);
@@ -311,7 +325,7 @@ export function OrderStatus({ token }) {
     <main
       style={theme}
       className={`relative flex flex-col px-4 transition-colors duration-1000 ease-in-out ${
-        ready ? "h-dvh overflow-hidden bg-burgundy text-on-primary" : "min-h-dvh bg-ivory text-ink"
+        ready ? "h-dvh overflow-y-auto bg-burgundy text-on-primary" : "min-h-dvh bg-ivory text-ink"
       }`}
     >
       {/* إضاءات خلفية ناعمة */}
@@ -328,7 +342,7 @@ export function OrderStatus({ token }) {
 
       <div
         className={`relative z-10 mx-auto flex w-full max-w-sm flex-1 flex-col items-center text-center ${
-          ready ? "min-h-0 justify-center py-3" : "py-10"
+          ready ? (restaurantSlug ? "py-3" : "min-h-0 justify-center py-3") : "py-10"
         }`}
         style={ready ? undefined : { justifyContent: "safe center" }}
       >
@@ -505,6 +519,15 @@ export function OrderStatus({ token }) {
           <div className={`mt-6 rounded-xl p-3 text-sm font-bold border ${ready ? "bg-white/10 text-gold border-gold/20" : "bg-foam text-burgundy border-burgundy/10"}`}>
             {error}
           </div>
+        ) : null}
+
+        {restaurantSlug ? (
+          <CustomerLoyalty
+            slug={restaurantSlug}
+            stampAdded={order.loyalty_stamp_added === true}
+            iconUrl={iconUrl}
+            onPaper={!ready}
+          />
         ) : null}
 
         <OrderReview token={token} status={order.status} onReviewed={() => setReviewed(true)} />

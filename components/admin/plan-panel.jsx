@@ -20,6 +20,7 @@ const blankPlan = {
   currency: "USD",
   pager: true,
   menu: false,
+  loyalty: false,
 };
 
 export function PlanPanel({ plans, busy, onCreate, onToggle, onChangeFlags, onDelete }) {
@@ -57,6 +58,7 @@ export function PlanPanel({ plans, busy, onCreate, onToggle, onChangeFlags, onDe
       currency,
       pager: form.pager,
       menu: form.menu,
+      loyalty: form.pager && form.loyalty,
     };
 
     if (form.interval === "trial") {
@@ -118,7 +120,10 @@ export function PlanPanel({ plans, busy, onCreate, onToggle, onChangeFlags, onDe
                 <div className="mt-3 flex flex-wrap items-center gap-2">
                   <ActionButton
                     variant="quiet"
-                    onClick={() => onChangeFlags(plan, { pager: !readFeatures(plan).pager })}
+                    onClick={() => {
+                      const features = readFeatures(plan);
+                      onChangeFlags(plan, features.pager ? { pager: false, loyalty: false } : { pager: true });
+                    }}
                     disabled={busy}
                   >
                     {readFeatures(plan).pager ? "إيقاف المناداة" : "تشغيل المناداة"}
@@ -137,6 +142,19 @@ export function PlanPanel({ plans, busy, onCreate, onToggle, onChangeFlags, onDe
                   </ActionButton>
                   <ActionButton
                     variant="quiet"
+                    onClick={() => {
+                      const features = readFeatures(plan);
+                      if (!features.loyalty && !features.pager) {
+                        return;
+                      }
+                      onChangeFlags(plan, { loyalty: !features.loyalty });
+                    }}
+                    disabled={busy || (!readFeatures(plan).loyalty && !readFeatures(plan).pager)}
+                  >
+                    {readFeatures(plan).loyalty ? "إيقاف الولاء" : "تشغيل الولاء"}
+                  </ActionButton>
+                  <ActionButton
+                    variant="quiet"
                     onClick={() => onToggle(plan)}
                     disabled={busy}
                   >
@@ -151,7 +169,7 @@ export function PlanPanel({ plans, busy, onCreate, onToggle, onChangeFlags, onDe
           )}
           </ul>
         <p className="mt-4 text-sm leading-6 text-ink/55">
-          تغيير المناداة أو القائمة يعدّل كل مطعم على هذه الخطة.
+          تغيير المناداة أو القائمة أو الولاء يعدّل كل مطعم على هذه الخطة. الولاء يحتاج المناداة.
         </p>
       </section>
 
@@ -214,7 +232,15 @@ export function PlanPanel({ plans, busy, onCreate, onToggle, onChangeFlags, onDe
             <input
               type="checkbox"
               checked={form.pager}
-              onChange={(event) => update("pager", event.target.checked)}
+              onChange={(event) => {
+                const checked = event.target.checked;
+                setForm((current) => ({
+                  ...current,
+                  pager: checked,
+                  loyalty: checked ? current.loyalty : false,
+                }));
+                setError("");
+              }}
               className="size-4 accent-burgundy"
             />
             المناداة
@@ -227,6 +253,16 @@ export function PlanPanel({ plans, busy, onCreate, onToggle, onChangeFlags, onDe
               className="size-4 accent-burgundy"
             />
             القائمة
+          </label>
+          <label className="flex cursor-pointer items-center gap-2 text-sm font-semibold text-burgundy-deep">
+            <input
+              type="checkbox"
+              checked={form.pager && form.loyalty}
+              disabled={!form.pager}
+              onChange={(event) => update("loyalty", event.target.checked)}
+              className="size-4 accent-burgundy disabled:opacity-40"
+            />
+            الولاء
           </label>
           <p role="alert" className="min-h-6 text-sm font-medium text-burgundy">
             {error}

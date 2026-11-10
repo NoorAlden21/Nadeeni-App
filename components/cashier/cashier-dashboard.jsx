@@ -6,6 +6,7 @@ import { ActionButton } from "@/components/cashier/action-button";
 import { apiFetch } from "@/lib/api/client";
 import { CancelDialog } from "@/components/cashier/cancel-dialog";
 import { OrderComposer } from "@/components/cashier/order-composer";
+import { LoyaltyRedeem } from "@/components/cashier/loyalty-redeem";
 import { OrderLane } from "@/components/cashier/order-lane";
 import { QrDialog } from "@/components/cashier/qr-dialog";
 import { UncollectDialog } from "@/components/cashier/uncollect-dialog";
@@ -52,6 +53,7 @@ export function CashierDashboard({ token, user, onUnauthenticated, onInactive })
   const [navOpen, setNavOpen] = useState(false);
   const [pagerOff, setPagerOff] = useState(false);
   const [menuOff, setMenuOff] = useState(false);
+  const [loyaltyOff, setLoyaltyOff] = useState(false);
   const onUnauthenticatedRef = useRef(onUnauthenticated);
   const onInactiveRef = useRef(onInactive);
   const busyIds = useRef(new Set());
@@ -60,9 +62,11 @@ export function CashierDashboard({ token, user, onUnauthenticated, onInactive })
   const features = readFeatures(user.restaurant);
   const pager = features.pager && !pagerOff;
   const menuOn = features.menu && !menuOff;
+  const loyaltyOn = features.loyalty && !loyaltyOff;
   const screens = [
     pager ? { id: "orders", label: "الطلبات" } : null,
     menuOn ? { id: "menu", label: "القائمة" } : null,
+    loyaltyOn ? { id: "loyalty", label: "تسليم مكافأة" } : null,
   ].filter(Boolean);
   const visible = screens.some((item) => item.id === screen) ? screen : screens[0]?.id || "none";
   const showNav = screens.length > 1;
@@ -575,6 +579,13 @@ export function CashierDashboard({ token, user, onUnauthenticated, onInactive })
             onUnauthenticated={onUnauthenticated}
             onInactive={onInactive}
             onFeatureUnavailable={() => setMenuOff(true)}
+          />
+        ) : visible === "loyalty" ? (
+          <LoyaltyRedeem
+            token={token}
+            onUnauthenticated={onUnauthenticated}
+            onInactive={onInactive}
+            onFeatureUnavailable={() => setLoyaltyOff(true)}
           />
         ) : (
           <>

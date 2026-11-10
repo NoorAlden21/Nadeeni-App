@@ -7,6 +7,7 @@ import { apiFetch } from "@/lib/api/client";
 import { QrDialog } from "@/components/cashier/qr-dialog";
 import { OwnerCustomers, OwnerOrders } from "@/components/owner/owner-charts";
 import { OwnerContact } from "@/components/owner/owner-contact";
+import { OwnerLoyalty } from "@/components/owner/owner-loyalty";
 import { OwnerReviews } from "@/components/owner/owner-reviews";
 import { RestaurantMenu } from "@/components/menu/restaurant-menu";
 import { SideNav } from "@/components/menu/screen-switch";
@@ -108,16 +109,20 @@ export function OwnerDashboard({ token, user, onUnauthenticated, onInactive }) {
   const [navOpen, setNavOpen] = useState(false);
   const [contact, setContact] = useState(null);
   const [menuOff, setMenuOff] = useState(false);
+  const [loyaltyOff, setLoyaltyOff] = useState(false);
   const onUnauthenticatedRef = useRef(onUnauthenticated);
   const onInactiveRef = useRef(onInactive);
   const theme = useRestaurantTheme(user?.restaurant);
-  const menuOn = readFeatures(user.restaurant).menu && !menuOff;
+  const features = readFeatures(user.restaurant);
+  const menuOn = features.menu && !menuOff;
+  const loyaltyOn = features.loyalty && !loyaltyOff;
   const screens = [
     { id: "orders", label: "الطلبات" },
     { id: "customers", label: "الزبائن" },
     { id: "reviews", label: "تقييمات الزبائن" },
     { id: "contact", label: "التواصل" },
     menuOn ? { id: "menu", label: "القائمة" } : null,
+    loyaltyOn ? { id: "loyalty", label: "الولاء" } : null,
   ].filter(Boolean);
   const visible = screens.some((item) => item.id === screen) ? screen : "customers";
   const showNav = screens.length > 1;
@@ -360,6 +365,14 @@ export function OwnerDashboard({ token, user, onUnauthenticated, onInactive }) {
             onUnauthenticated={onUnauthenticated}
             onInactive={onInactive}
             onFeatureUnavailable={() => setMenuOff(true)}
+          />
+        ) : visible === "loyalty" ? (
+          <OwnerLoyalty
+            token={token}
+            timeZone={timeZone}
+            onUnauthenticated={onUnauthenticated}
+            onInactive={onInactive}
+            onFeatureUnavailable={() => setLoyaltyOff(true)}
           />
         ) : visible === "contact" ? (
           <OwnerContact

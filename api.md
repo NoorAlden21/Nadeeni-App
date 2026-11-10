@@ -1142,11 +1142,14 @@ A valid id is saved when the order does not have one yet, including after the or
 ```json
 {
   "restaurant_name": "Shawarma House",
+  "slug": "shawarma-house",
   "order_number": "0047",
   "status": "waiting",
   "loyalty_stamp_added": false
 }
 ```
+
+`slug` is the restaurant's public slug. The status page uses it to read `GET /public/restaurants/{slug}/loyalty-card` when `features.loyalty` is true. The JSON still has no card id and no browser id.
 
 `loyalty_stamp_added` is `true` only when `status` is `collected`, the restaurant's `loyalty` flag is on, this request's `X-Visitor-Id` is the browser stored on the order, and this order's stamp is attached to a card. An unassigned stamp, a missing header, or a different browser is `false`. The JSON still has no card id and no browser id. A `waiting` or `ready` poll does not look for a stamp. A collected order at a restaurant with `loyalty` off does not look either. A browser that does not match the stored id does not look either.
 

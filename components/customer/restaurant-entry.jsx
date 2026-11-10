@@ -18,7 +18,9 @@ import {
   publicErrorText,
   readVisitorId,
   rememberOrderIcon,
+  rememberOrderSlug,
   rememberRestaurantIcon,
+  rememberRestaurantSlug,
 } from "@/lib/customer/public";
 
 export function RestaurantEntry({ slug }) {
@@ -63,6 +65,7 @@ export function RestaurantEntry({ slug }) {
         if (stopped) return;
         const icon = restaurantIconSrc(restaurant?.icon_url);
         setName(restaurant?.name || "");
+        rememberRestaurantSlug(restaurant?.name, slug);
         setNameEn(typeof restaurant?.name_en === "string" ? restaurant.name_en.trim() : "");
         setIconUrl(icon);
         setContact(restaurant);
@@ -157,6 +160,8 @@ export function RestaurantEntry({ slug }) {
       if (typeof window !== "undefined") {
         localStorage.setItem(`nadeeni_last_order_${slug}`, targetNumber.trim());
         rememberOrderIcon(result?.token, iconUrl);
+        rememberOrderSlug(result?.token, slug);
+        rememberRestaurantSlug(name, slug);
       }
 
       const nextPath = statusPath(result);
