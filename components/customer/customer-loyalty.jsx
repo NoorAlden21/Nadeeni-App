@@ -2,18 +2,261 @@
 
 import { useEffect, useRef, useState } from "react";
 import { apiFetch, restaurantIconSrc } from "@/lib/api/client";
-import { publicErrorText, visitorHeaders } from "@/lib/customer/public";
+import { cashierCopy } from "@/lib/cashier/orders";
+import { publicErrorText, readVisitorId, visitorHeaders } from "@/lib/customer/public";
 import { readFeatures } from "@/lib/features";
 import {
   countdownLabel,
   loyaltyCardVisible,
   loyaltyCopy,
+  loyaltyPhoneCode,
+  loyaltyPhoneError,
+  loyaltyPhoneStartBody,
+  loyaltyPhoneValue,
+  loyaltyPhoneVerifyBody,
   readLoyaltyCard,
+  westernDigits,
   rewardReadyLabel,
   secondsUntil,
   stampProgress,
   stampSlots,
 } from "@/lib/loyalty";
+
+function phoneProblem(error) {
+  return loyaltyPhoneError(error) || publicErrorText(error, loyaltyCopy.cardUnavailable);
+}
+
+function LoyaltyPhone({ slug, allowed, onReload, onUnavailable }) {
+  const [phone, setPhone] = useState("");
+  const [name, setName] = useState("");
+  const [code, setCode] = useState("");
+  const [step, setStep] = useState("phone");
+  const [notice, setNotice] = useState("");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  function fail(requestError) {
+    if (requestError.status === 404) {
+      onUnavailable();
+      return;
+    }
+    setError(phoneProblem(requestError));
+  }
+
+  async function requestCode() {
+    if (busy || !allowed.current) {
+      return;
+    }
+
+    const typed = phone.trim();
+    if (!typed) {
+      setNotice("");
+      setError(loyaltyCopy.emptyPhone);
+      return;
+    }
+
+    const nextPhone = loyaltyPhoneValue(phone);
+    if (!nextPhone) {
+      setNotice("");
+      setError(loyaltyCopy.phoneInvalid);
+      return;
+    }
+    if (!readVisitorId()) {
+      setNotice("");
+      setError(loyaltyCopy.visitorRequired);
+      return;
+    }
+
+    setBusy(true);
+    setError("");
+    try {
+      const payload = await apiFetch(
+        `/public/restaurants/${encodeURIComponent(slug)}/loyalty-card/phone/start`,
+        { method: "POST", headers: visitorHeaders(), body: loyaltyPhoneStartBody(nextPhone) },
+      );
+      if (payload?.message !== "code_sent") {
+        setNotice("");
+        setError(cashierCopy.generic);
+        return;
+      }
+      setPhone(nextPhone);
+      setCode("");
+      setStep("code");
+      setNotice(loyaltyCopy.codeSent);
+    } catch (requestError) {
+      fail(requestError);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function confirmCode() {
+    if (busy || !allowed.current || step !== "code") {
+      return;
+    }
+
+    const nextPhone = loyaltyPhoneValue(phone);
+    const nextCode = loyaltyPhoneCode(code);
+    if (!nextPhone) {
+      setError(loyaltyCopy.phoneInvalid);
+      return;
+    }
+    if (!nextCode) {
+      setError(loyaltyCopy.emptyCode);
+      return;
+    }
+    if (!readVisitorId()) {
+      setError(loyaltyCopy.visitorRequired);
+      return;
+    }
+
+    setBusy(true);
+    setError("");
+    try {
+      const payload = await apiFetch(
+        `/public/restaurants/${encodeURIComponent(slug)}/loyalty-card/phone/verify`,
+        {
+          method: "POST",
+          headers: visitorHeaders(),
+          body: loyaltyPhoneVerifyBody(nextPhone, nextCode, name),
+        },
+      );
+      if (payload?.message !== "verified") {
+        setError(cashierCopy.generic);
+        return;
+      }
+      setNotice("");
+      setCode("");
+      await onReload();
+    } catch (requestError) {
+      fail(requestError);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function onSubmit(event) {
+    event.preventDefault();
+    if (step === "code") {
+      confirmCode();
+      return;
+    }
+    requestCode();
+  }
+
+  return (
+    <form method="post" onSubmit={onSubmit} className="mt-5 border-t border-burgundy/10 pt-4">
+      <p className="text-sm leading-6 text-ink/60">{loyaltyCopy.phoneOptional}</p>
+      {step === "phone" ? (
+        <>
+          <label htmlFor="loyalty-phone" className="mt-3 block text-sm font-semibold text-burgundy-deep">
+            {loyaltyCopy.phoneLabel}
+          </label>
+          <input
+            id="loyalty-phone"
+            dir="ltr"
+            inputMode="tel"
+            autoComplete="tel"
+            value={phone}
+            onChange={(event) => {
+              setPhone(event.target.value);
+              setError("");
+            }}
+            className="mt-2 h-12 w-full rounded-2xl bg-ivory px-4 font-sans text-base text-ink outline-none ring-1 ring-burgundy/15 focus:bg-white focus:ring-2 focus:ring-gold"
+          />
+          <label htmlFor="loyalty-name" className="mt-3 block text-sm font-semibold text-burgundy-deep">
+            {loyaltyCopy.nameLabel}
+            <span className="ms-2 font-medium text-ink/45">{loyaltyCopy.nameOptional}</span>
+          </label>
+          <input
+            id="loyalty-name"
+            autoComplete="name"
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            className="mt-2 h-12 w-full rounded-2xl bg-ivory px-4 text-base text-ink outline-none ring-1 ring-burgundy/15 focus:bg-white focus:ring-2 focus:ring-gold"
+          />
+          <button
+            type="submit"
+            disabled={busy}
+            className="mt-4 inline-flex h-12 w-full cursor-pointer items-center justify-center rounded-2xl bg-burgundy font-semibold text-on-primary disabled:opacity-40"
+          >
+            {busy ? loyaltyCopy.sendingCode : loyaltyCopy.sendCode}
+          </button>
+        </>
+      ) : (
+        <>
+          <p className="mt-3 text-sm font-semibold leading-6 text-burgundy">{notice}</p>
+          <p className="mt-1 text-sm leading-6 text-ink/60">{loyaltyCopy.phoneCodeHint}</p>
+          <p className="mt-3 text-sm font-semibold text-ink/70">
+            {loyaltyCopy.phonePending}
+            <span dir="ltr" className="ms-2 font-sans tabular-nums tracking-wider text-burgundy-deep">
+              {phone.slice(-4)}
+            </span>
+          </p>
+          <label htmlFor="loyalty-name" className="mt-3 block text-sm font-semibold text-burgundy-deep">
+            {loyaltyCopy.nameLabel}
+            <span className="ms-2 font-medium text-ink/45">{loyaltyCopy.nameOptional}</span>
+          </label>
+          <input
+            id="loyalty-name"
+            autoComplete="name"
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            className="mt-2 h-12 w-full rounded-2xl bg-ivory px-4 text-base text-ink outline-none ring-1 ring-burgundy/15 focus:bg-white focus:ring-2 focus:ring-gold"
+          />
+          <label htmlFor="loyalty-phone-code" className="mt-3 block text-sm font-semibold text-burgundy-deep">
+            {loyaltyCopy.phoneCodeLabel}
+          </label>
+          <input
+            id="loyalty-phone-code"
+            dir="ltr"
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            value={code}
+            onChange={(event) => {
+              setCode(westernDigits(event.target.value).replace(/\D/g, "").slice(0, 6));
+              setError("");
+            }}
+            className="mt-2 h-12 w-full rounded-2xl bg-ivory px-4 text-center font-sans text-2xl font-bold tracking-[0.28em] text-burgundy-deep outline-none ring-1 ring-burgundy/15 focus:bg-white focus:ring-2 focus:ring-gold"
+          />
+          <button
+            type="submit"
+            disabled={busy}
+            className="mt-4 inline-flex h-12 w-full cursor-pointer items-center justify-center rounded-2xl bg-burgundy font-semibold text-on-primary disabled:opacity-40"
+          >
+            {busy ? loyaltyCopy.verifyingPhone : loyaltyCopy.verifyPhone}
+          </button>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={requestCode}
+            className="mt-2 inline-flex h-11 w-full cursor-pointer items-center justify-center rounded-2xl text-sm font-semibold text-burgundy disabled:opacity-40"
+          >
+            {loyaltyCopy.requestCode}
+          </button>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => {
+              setStep("phone");
+              setNotice("");
+              setCode("");
+              setError("");
+            }}
+            className="mt-1 inline-flex h-10 w-full cursor-pointer items-center justify-center text-sm font-semibold text-ink/50 disabled:opacity-40"
+          >
+            {loyaltyCopy.changePhone}
+          </button>
+        </>
+      )}
+      {error ? (
+        <p role="alert" className="mt-3 text-sm font-semibold text-burgundy">
+          {error}
+        </p>
+      ) : null}
+    </form>
+  );
+}
 
 export function CustomerLoyalty({ slug, stampAdded, iconUrl = "", onPaper = true }) {
   const [card, setCard] = useState(null);
@@ -29,6 +272,8 @@ export function CustomerLoyalty({ slug, stampAdded, iconUrl = "", onPaper = true
   const noted = useRef(false);
   const claimedPending = useRef(null);
   const watch = useRef(false);
+  const phoneAllowed = useRef(false);
+  const reloadCard = useRef(async () => {});
 
   useEffect(() => {
     if (iconUrl) {
@@ -77,6 +322,7 @@ export function CustomerLoyalty({ slug, stampAdded, iconUrl = "", onPaper = true
         }
         if (error.status === 404) {
           enabled = false;
+          phoneAllowed.current = false;
           setOff(true);
           setCard(null);
           return;
@@ -124,6 +370,7 @@ export function CustomerLoyalty({ slug, stampAdded, iconUrl = "", onPaper = true
           return;
         }
         if (!readFeatures(restaurant).loyalty) {
+          phoneAllowed.current = false;
           setOff(true);
           return;
         }
@@ -131,6 +378,7 @@ export function CustomerLoyalty({ slug, stampAdded, iconUrl = "", onPaper = true
         if (icon) {
           setMark(icon);
         }
+        phoneAllowed.current = true;
         enabled = true;
         await loadCard();
         if (!stopped && enabled) {
@@ -142,16 +390,28 @@ export function CustomerLoyalty({ slug, stampAdded, iconUrl = "", onPaper = true
           return;
         }
         if (error.status === 404) {
+          phoneAllowed.current = false;
           setOff(true);
           return;
         }
         setProblem(publicErrorText(error, loyaltyCopy.cardUnavailable));
       });
 
+    reloadCard.current = async () => {
+      if (stopped || !enabled) {
+        return;
+      }
+      await loadCard();
+      if (!stopped && enabled) {
+        schedule();
+      }
+    };
+
     document.addEventListener("visibilitychange", onVisibility);
 
     return () => {
       stopped = true;
+      reloadCard.current = async () => {};
       window.clearTimeout(timer);
       document.removeEventListener("visibilitychange", onVisibility);
     };
@@ -193,6 +453,7 @@ export function CustomerLoyalty({ slug, stampAdded, iconUrl = "", onPaper = true
       setNow(Date.now());
     } catch (error) {
       if (error.status === 404) {
+        phoneAllowed.current = false;
         setOff(true);
         return;
       }
@@ -305,6 +566,25 @@ export function CustomerLoyalty({ slug, stampAdded, iconUrl = "", onPaper = true
       ) : null}
       {claimError ? <p className="mt-3 text-sm font-semibold text-burgundy">{claimError}</p> : null}
       {problem ? <p className="mt-3 text-sm font-medium text-burgundy">{problem}</p> : null}
+      {card.phoneLast4 ? (
+        <p className="mt-5 border-t border-burgundy/10 pt-4 text-sm font-semibold text-ink/70">
+          {loyaltyCopy.phoneSaved}
+          <span dir="ltr" className="ms-2 font-sans tabular-nums tracking-wider text-burgundy-deep">
+            {card.phoneLast4}
+          </span>
+        </p>
+      ) : (
+        <LoyaltyPhone
+          slug={slug}
+          allowed={phoneAllowed}
+          onReload={() => reloadCard.current()}
+          onUnavailable={() => {
+            phoneAllowed.current = false;
+            setOff(true);
+            setCard(null);
+          }}
+        />
+      )}
     </section>
   );
 }

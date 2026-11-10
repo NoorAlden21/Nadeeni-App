@@ -933,7 +933,7 @@ Customer routes:
 | Page | Calls |
 |---|---|
 | `/r/{slug}` from the shared restaurant QR | `GET /public/restaurants/{slug}`, `GET /public/restaurants/{slug}/menu`, `GET /public/restaurants/{slug}/loyalty-card` when `loyalty` is true, then `POST /public/restaurants/{slug}/register`, then open `/o/{token}` |
-| `/o/{token}` from a per-order QR or from register | `GET /public/orders/{token}` every 4 seconds, `GET /public/restaurants/{slug}/loyalty-card` when `loyalty` is true, and the push-subscription routes after the customer allows notifications |
+| `/o/{token}` from a per-order QR or from register | `GET /public/orders/{token}` every 4 seconds, `GET /public/restaurants/{slug}/loyalty-card` when `loyalty` is true, `POST .../loyalty-card/phone/start` and `POST .../loyalty-card/phone/verify` when the customer chooses to save or restore a number, and the push-subscription routes after the customer allows notifications |
 
 A missing restaurant, an inactive restaurant, or a restaurant with no current subscription is `404` and `{ "message": "Not found." }`. Treat that status as not found. Do not parse `message` to tell those cases apart. An already issued `/o/{token}` link still returns the order status.
 
@@ -1028,6 +1028,21 @@ A card whose program is enabled. `stamps_required` and both reward texts come fr
 
 A card whose program is missing or disabled. Progress stays where it was, and a reward already earned stays visible. `state` is `paused`. The same card fields are returned.
 
+When that card has a verified phone, the object also includes `phone_verified` (`true`) and `phone_last4` (four digits). A card with no phone omits both. The response still has no browser id, no card id, and no full phone number.
+
+```json
+{
+  "state": "active",
+  "stamps_required": 6,
+  "reward_text_ar": "قهوة مجانية",
+  "reward_text_en": "A free coffee",
+  "stamps_in_cycle": 1,
+  "pending_rewards": 0,
+  "phone_verified": true,
+  "phone_last4": "3456"
+}
+```
+
 More than 120 requests per minute from the same IP for the same restaurant returns `429` and `{ "message": "Too Many Attempts." }`.
 
 ### `POST /public/restaurants/{slug}/loyalty-card/claim-code`
@@ -1048,6 +1063,41 @@ Call this when `pending_rewards` is at least 1, including while the card is `pau
 The cashier types `code`. Create a code only when the customer taps the button, and show the countdown from `expires_at`. Do not refresh the code on a timer or when the page reloads. A new code invalidates the previous one, so a refresh while the cashier is typing makes that code fail.
 
 More than 10 requests per minute from the same IP for the same restaurant returns `429` and `{ "message": "Too Many Attempts." }`. Customers on the same network share that limit. Codes older than a day are deleted.
+
+### `POST /public/restaurants/{slug}/loyalty-card/phone/start`
+
+No bearer token. Send `X-Visitor-Id`. Body is `{ "phone": "+963944123456" }`. A valid international number is stored as E.164. A Syrian mobile may also be sent as `09XXXXXXXX` or `9XXXXXXXX`, and as `00963...`. Eastern Arabic (`٠-٩`) and Persian (`۰-۹`) digits are accepted. Any other local number is `422`.
+
+The same `404` rules as the card read apply. A missing or invalid browser id is `422` and `errors.visitor_id` is `A browser id is required.` An invalid number is `422` and `errors.phone` is `The phone number is invalid.` The route keeps working while the owner program is paused. Do not call it when `features.loyalty` is false.
+
+`200` is always `{ "message": "code_sent" }`. That body is the same when the phone is new, when it already has a card, when this browser has no card, and when the provider fails. It does not mean a message arrived. The message is Arabic and contains a 6-digit code that lasts 5 minutes. It is not the cashier's claim code.
+
+`LOYALTY_PHONE_DRIVER=log` (the default) records that a message was handed off and does not call a provider. `LOYALTY_PHONE_DRIVER=evolution` sends it on WhatsApp: `POST {EVOLUTION_BASE_URL}/message/sendText/{EVOLUTION_INSTANCE}` with header `apikey`. The JSON `number` is the E.164 digits without `+`, and `text` is the Arabic message. If that instance does not return HTTP 2xx, each distinct name in `EVOLUTION_INSTANCE_FALLBACK` is tried once. The request waits at most `LOYALTY_PHONE_SEND_TIMEOUT` seconds (default 5). An empty base URL, API key, or primary instance does not call the network. The API key stays on the server. Logs name the instance and the HTTP status only: never the phone, the code, or the message.
+
+A new code does not wipe wrong tries already spent on this browser and phone. After 5 wrong tries the challenge is dead until it is deleted, and asking again still returns `code_sent` without sending another message. One send per minute and 3 per hour for the same restaurant and phone. 5 per hour from the same IP. More than that is `429` and `{ "message": "Too Many Attempts." }`.
+
+Each restaurant can hand the provider 100 messages per local day (`LOYALTY_PHONE_DAILY_CAP`). Over the cap, the response is `503` and `{ "message": "unavailable" }`. Nothing is sent.
+
+The verified number is stored as E.164 on that restaurant's customer. The same number at another restaurant is a different customer. The public card returns `phone_last4` only. A carrier can reassign a number to someone else later; the card follows the number that was verified, not the person.
+
+### `POST /public/restaurants/{slug}/loyalty-card/phone/verify`
+
+No bearer token. Send the same `X-Visitor-Id`. Body is `{ "phone": "+963944123456", "code": "048213", "name": "نور" }`. `name` is optional. A blank name does not clear a name already stored. A later name does not replace one already stored.
+
+The same `404` rules as the card read apply, including while the program is paused. A missing browser id or an invalid phone uses the same `422` errors as start. A `code` longer than 6 characters is `422`. A wrong code, an expired code, a used-up challenge, and a cashier claim code are `409` and `{ "message": "invalid_code" }`.
+
+More than 10 requests per minute for the same restaurant and phone, or 30 per hour from the same IP, returns `429` and `{ "message": "Too Many Attempts." }`.
+
+`200` is `{ "message": "verified" }`.
+
+- The phone is new and this browser has a card with no phone: the phone is attached to that card. Stamps stay where they are.
+- The phone already has a card and this browser has none: this browser is linked to that card. A sixth browser is `409` and `{ "message": "browser_limit" }`.
+- The phone already has a card and this browser has a different card: `409` and `{ "message": "merge_not_available" }`.
+- The phone is new and this browser has no card: `409` and `{ "message": "nothing_to_link" }`. No customer row is created.
+- This browser's card is already on this phone: `200`, and nothing else changes.
+- This browser's card is already on a different phone: `409` and `{ "message": "phone_already_set" }`.
+
+Read the card again to show `phone_last4`. The verify response has no phone number, no browser id, and no card id. The cashier still redeems by typing the claim code, never by looking up a phone.
 
 ### `GET /public/restaurants/{slug}/menu`
 
