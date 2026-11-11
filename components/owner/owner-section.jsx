@@ -41,7 +41,7 @@ export function StatTile({ label, value, detail, accent = "burgundy", reserveDet
   const numeric = typeof value === "string" || typeof value === "number";
 
   return (
-    <div className="min-w-0 overflow-hidden rounded-2xl bg-white text-center shadow-[0_16px_36px_-28px_rgba(74,4,24,0.55)] ring-1 ring-burgundy/10">
+    <div className="min-w-0 flex-1 overflow-hidden rounded-2xl bg-white text-center shadow-[0_16px_36px_-28px_rgba(74,4,24,0.55)] ring-1 ring-burgundy/10">
       <div className={`h-1 ${accents[accent] || accents.burgundy}`} />
       <div className="px-3 py-4">
         <p className="text-xs font-semibold text-ink/50">{label}</p>

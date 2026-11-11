@@ -38,18 +38,49 @@ self.addEventListener("push", (event) => {
 
   const title = payload.restaurant_name || "ناديني";
   const scope = self.registration.scope;
+  const baseTag = payload.order_number ? `nadeeni-${payload.order_number}` : "nadeeni-ready";
+  const url = statusUrl(payload.url);
   const options = {
     body: payload.message || "",
     lang: "ar",
     dir: "rtl",
     icon: new URL("/push-icon.png", scope).href,
     badge: new URL("/push-badge.png", scope).href,
-    tag: payload.order_number ? `nadeeni-${payload.order_number}` : "nadeeni-ready",
+    tag: `${baseTag}-${Date.now()}`,
     renotify: true,
-    data: { url: statusUrl(payload.url) },
+    silent: false,
+    vibrate: [200, 100, 200, 100, 320],
+    data: { url },
   };
 
-  event.waitUntil(self.registration.showNotification(title, options));
+  event.waitUntil(
+    (async () => {
+      const existing = await self.registration.getNotifications();
+      existing.forEach((notification) => {
+        if (notification.tag === baseTag || String(notification.tag).startsWith(`${baseTag}-`)) {
+          notification.close();
+        }
+      });
+      await self.registration.showNotification(title, options);
+      const windows = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+      let targetPath = "";
+      try {
+        targetPath = new URL(url).pathname;
+      } catch {
+        targetPath = "";
+      }
+      windows.forEach((client) => {
+        try {
+          if (!targetPath || new URL(client.url).pathname !== targetPath) {
+            return;
+          }
+        } catch {
+          return;
+        }
+        client.postMessage({ type: "nadeeni-ready" });
+      });
+    })(),
+  );
 });
 
 self.addEventListener("notificationclick", (event) => {

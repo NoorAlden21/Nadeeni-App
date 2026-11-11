@@ -284,7 +284,7 @@ export function OwnerDashboard({ token, user, onUnauthenticated, onInactive }) {
           ) : null}
           <aside
             id="owner-nav"
-            className={`${navOpen ? "flex" : "hidden md:flex"} fixed inset-y-0 start-0 z-40 w-64 flex-col border-e border-burgundy/10 bg-paper pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] font-detail`}
+            className={`${navOpen ? "flex" : "hidden md:flex"} fixed inset-y-0 start-0 z-40 w-56 flex-col border-e border-burgundy/10 bg-paper pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] font-detail`}
           >
             <div className="flex items-center gap-3 border-b border-burgundy/10 px-4 py-4">
               <BrandMark className="h-11 w-11" />
@@ -320,7 +320,7 @@ export function OwnerDashboard({ token, user, onUnauthenticated, onInactive }) {
         </>
       ) : null}
 
-      <div className={showNav ? "md:ps-64" : ""}>
+      <div className={showNav ? "md:ps-56" : ""}>
       <header className="sticky top-0 z-20 border-b border-burgundy/5 bg-white pt-[env(safe-area-inset-top)] shadow-sm">
         <div className="mx-auto flex min-h-16 w-full max-w-7xl items-center gap-4 px-4 py-3 sm:min-h-[5rem] sm:px-8">
           {showNav ? (

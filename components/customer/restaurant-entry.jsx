@@ -2,10 +2,16 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { motion, useReducedMotion } from "framer-motion";
+import { AnimatePresence, motion, useAnimation, useReducedMotion } from "framer-motion";
+import { ArrowLeft, ArrowRight, Loader2, Receipt } from "lucide-react";
 import { PoweredBy } from "@/components/brand/powered-by";
 import { ActionButton } from "@/components/cashier/action-button";
+import { PageMotion } from "@/components/motion/page-motion";
+import { PressButton } from "@/components/motion/press-button";
+import { useSafeReducedMotion } from "@/components/motion/use-reduced-motion";
 import { PublicMenu } from "@/components/customer/public-menu";
+import { Card } from "@/components/ui/card";
+import { fadeUp, stagger } from "@/lib/motion";
 // import { RestaurantContact } from "@/components/customer/restaurant-contact";
 import { apiFetch, menuAssetSrc, restaurantIconSrc } from "@/lib/api/client";
 import { readPublicMenu } from "@/lib/customer/public-menu";
@@ -42,7 +48,10 @@ export function RestaurantEntry({ slug }) {
   const [savedOrder, setSavedOrder] = useState("");
   const [contact, setContact] = useState(null);
   const [nameEn, setNameEn] = useState("");
+  const [leaving, setLeaving] = useState(false);
   const theme = useRestaurantTheme(contact);
+  const reduceMotion = useSafeReducedMotion();
+  const inputMotion = useAnimation();
 
   useEffect(() => {
     let stopped = false;
@@ -114,6 +123,11 @@ export function RestaurantEntry({ slug }) {
     };
   }, [slug]);
 
+  useEffect(() => {
+    if (!errorTick || reduceMotion) return;
+    inputMotion.start({ x: [0, -6, 6, -4, 4, 0], transition: { duration: 0.3 } });
+  }, [errorTick, reduceMotion, inputMotion]);
+
   function statusPath(result) {
     if (result?.url) {
       try {
@@ -147,6 +161,7 @@ export function RestaurantEntry({ slug }) {
 
     setBusy(true);
     setError("");
+    let navigate = false;
     try {
       const visitorId = readVisitorId();
       const result = await apiFetch(`/public/restaurants/${encodeURIComponent(slug)}/register`, {
@@ -166,12 +181,15 @@ export function RestaurantEntry({ slug }) {
 
       const nextPath = statusPath(result);
       if (nextPath) {
-        router.push(nextPath);
+        navigate = true;
+        const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        setLeaving(true);
+        window.setTimeout(() => router.push(nextPath), reduce ? 0 : 280);
       }
     } catch (requestError) {
       showError(publicErrorText(requestError, customerCopy.orderUnavailable));
     } finally {
-      setBusy(false);
+      if (!navigate) setBusy(false);
     }
   }
 
@@ -284,149 +302,202 @@ export function RestaurantEntry({ slug }) {
     );
   }
 
+  const describedBy = error ? "order-number-hint order-number-error" : "order-number-hint";
+
+  const numberEmpty = !number.trim();
+
   return (
-    <Screen theme={theme}>
-      {error ? (
-        <div className="pointer-events-none fixed inset-x-0 top-0 z-50 flex justify-center px-4 pt-[max(0.75rem,env(safe-area-inset-top))]">
-          <p
-            key={errorTick}
-            role="alert"
-            className="pointer-events-auto w-full max-w-md rounded-2xl bg-foam px-4 py-3 text-center text-sm font-medium leading-6 text-burgundy shadow-[0_18px_40px_-20px_rgba(74,4,24,0.55)] ring-1 ring-burgundy/15 motion-safe:animate-shake"
+    <Screen theme={theme} decor>
+      <PageMotion>
+        {features.menu && !menuProblem ? (
+          <PressButton
+            type="button"
+            onClick={() => setDoor("choose")}
+            className="inline-flex min-h-11 items-center gap-1 self-start px-1 text-[14px] font-bold text-burgundy focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-burgundy/40"
           >
-            {error}
-          </p>
-        </div>
-      ) : null}
-      <div className="grid w-full items-center gap-8 lg:grid-cols-2 lg:gap-16">
-        
-        {/* القسم الأيمن / العلوي */}
-        <div className="flex flex-col items-center text-center lg:items-start lg:text-start">
-          <div className="mb-8 flex flex-col items-center lg:mb-10 lg:items-start">
-            <p className="text-xl font-extrabold text-gold-deep sm:text-2xl">أهلاً بك في مطعم</p>
-            {name ? (
-              <div className="mt-3 flex items-center gap-3">
-                {iconUrl ? (
-                  <img src={iconUrl} alt="" className="h-12 w-12 shrink-0 rounded-2xl object-cover ring-1 ring-burgundy/10 sm:h-14 sm:w-14" />
-                ) : null}
-                <h1 className="max-w-full font-display text-4xl font-bold wrap-break-word text-burgundy-deep sm:text-5xl lg:text-6xl">
+            <ArrowRight className="size-4" aria-hidden="true" />
+            {customerCopy.backToChoices}
+          </PressButton>
+        ) : null}
+        <div className="flex flex-1 flex-col justify-center py-6">
+          <motion.div className="flex w-full flex-col items-center gap-8 text-center" variants={stagger} initial="hidden" animate="show">
+            <motion.header variants={fadeUp} className="flex flex-col items-center">
+              {iconUrl ? (
+                <div className="mb-4 flex size-16 items-center justify-center rounded-2xl bg-white p-1.5 shadow-[0_4px_16px_rgba(74,54,0,0.06)]">
+                  <img src={iconUrl} alt="" className="size-full rounded-xl object-cover" />
+                </div>
+              ) : null}
+              <p className="text-[13px] font-medium text-burgundy/70">أهلاً بك في مطعم</p>
+              {name ? (
+                <h1 className="mt-1 max-w-full font-display text-[1.75rem] leading-tight font-bold wrap-break-word text-burgundy-deep">
                   {name}
                 </h1>
-              </div>
+              ) : null}
+            </motion.header>
+
+            <motion.div variants={fadeUp} className="w-full">
+              <EntrySteps reduce={reduceMotion} />
+            </motion.div>
+
+            <motion.div className="w-full" variants={fadeUp} animate={leaving ? { opacity: 0 } : undefined}>
+              <Card className="rounded-track border border-line bg-white px-5 py-6 text-center shadow-track ring-0">
+                <Receipt className="mx-auto size-6 text-burgundy" strokeWidth={2} aria-hidden="true" />
+                <label htmlFor="order-number" className="mt-3 block text-[1.15rem] font-bold text-burgundy-deep">
+                  رقم الطلب
+                </label>
+                <p id="order-number-hint" className="mt-2 text-[14px] leading-6 text-burgundy/70">
+                  اكتبوا رقم الطلب كما سجّله الكاشير.
+                </p>
+                <form onSubmit={(event) => handleSubmit(event)} className="mt-4 flex flex-col gap-4">
+                  <motion.div animate={inputMotion}>
+                    <div
+                      className={`rounded-2xl border-[1.5px] bg-white transition-[border-color,box-shadow] duration-200 ${
+                        error
+                          ? "border-[#C45C5C]"
+                          : "border-line focus-within:border-burgundy focus-within:ring-4 focus-within:ring-burgundy/25"
+                      }`}
+                    >
+                      <input
+                        id="order-number"
+                        name="order_number"
+                        dir="ltr"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        autoFocus
+                        autoComplete="off"
+                        enterKeyHint="go"
+                        aria-invalid={error ? true : undefined}
+                        aria-describedby={describedBy}
+                        placeholder="000"
+                        value={number}
+                        onChange={(event) => {
+                          setNumber(event.target.value);
+                          setError("");
+                        }}
+                        className="h-16 w-full min-w-0 overflow-x-auto bg-transparent text-center font-sans text-[32px] font-bold tracking-[0.15em] text-burgundy-deep tabular-nums outline-none placeholder:text-[24px] placeholder:font-medium placeholder:tracking-[0.15em] placeholder:text-burgundy/30"
+                      />
+                    </div>
+                  </motion.div>
+                  <AnimatePresence>
+                    {error ? (
+                      <motion.p
+                        id="order-number-error"
+                        role="alert"
+                        key={errorTick}
+                        initial={reduceMotion ? false : { opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="text-[13px] leading-6 font-medium text-[#8C2F2F]"
+                      >
+                        {error}
+                      </motion.p>
+                    ) : null}
+                  </AnimatePresence>
+                  <PressButton
+                    type="submit"
+                    disabled={busy || numberEmpty}
+                    className={`inline-flex h-[52px] w-full items-center justify-center gap-2 rounded-2xl text-[15px] font-bold focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-burgundy/40 disabled:cursor-not-allowed ${
+                      numberEmpty && !busy
+                        ? "bg-wash text-ink/45 shadow-none"
+                        : "cursor-pointer bg-burgundy text-on-primary shadow-track-press"
+                    }`}
+                  >
+                    <span>{busy ? "جاري التحقق..." : "تابع طلبي"}</span>
+                    {busy ? (
+                      <Loader2 className="size-5 animate-spin motion-reduce:animate-none" aria-hidden="true" />
+                    ) : (
+                      <ArrowLeft className="size-5" aria-hidden="true" />
+                    )}
+                  </PressButton>
+                </form>
+              </Card>
+            </motion.div>
+
+            {menuProblem ? (
+              <p role="alert" className="text-center text-sm font-medium text-[#8C2F2F]">
+                {menuProblem}
+              </p>
             ) : null}
-            {/* <RestaurantContact contact={contact} className="justify-center lg:justify-start" /> */}
-          </div>
 
-          {/* تسلسل النظام (Progress Stepper) بدلاً من الفاتورة */}
-          <div className="mb-8 w-full max-w-[18rem] sm:max-w-xs lg:mb-12">
-            <div className="relative grid grid-cols-3">
-              <div className="absolute top-5 right-[calc(100%/6)] left-[calc(100%/6)] z-0 h-[2px] bg-burgundy/10" />
-              <div className="absolute top-5 right-[calc(100%/6)] z-0 h-[2px] w-[calc(100%/3)] bg-gold" />
-
-              {/* الخطوة الأولى: مسح الرمز (تمت) */}
-              <div className="relative z-10 flex flex-col items-center gap-2 opacity-60">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gold text-white shadow-sm transition-transform hover:scale-105">
-                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                  </svg>
+            {savedOrder && numberEmpty && !busy ? (
+              <motion.div variants={fadeUp} className="w-full">
+                <div className="rounded-2xl border border-dashed border-line bg-foam px-4 py-4">
+                  <p className="text-[13px] font-medium text-burgundy/70">هل تبحث عن طلبك السابق؟</p>
+                  <button
+                    type="button"
+                    onClick={() => handleSubmit(null, savedOrder)}
+                    className="mt-3 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border-[1.5px] border-burgundy bg-white px-4 text-[15px] font-bold text-burgundy focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-burgundy/40"
+                  >
+                    <span>متابعة الطلب رقم {savedOrder}</span>
+                    <ArrowLeft className="size-4" aria-hidden="true" />
+                  </button>
                 </div>
-                <span className="text-xs font-bold text-ink/70">مسح الرمز</span>
-              </div>
-
-              {/* الخطوة الثانية: إدخال الرقم (الحالية - مع أنيميشن) */}
-              <div className="relative z-10 flex flex-col items-center gap-2">
-                <div className="relative flex h-10 w-10 items-center justify-center rounded-full bg-burgundy text-on-primary">
-                  {/* تأثير النبض (Ping) */}
-                  <div className="absolute inset-0 rounded-full border-2 border-burgundy opacity-75 animate-[ping_2s_cubic-bezier(0,0,0.2,1)_infinite]" />
-                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 6v.75m0 3v.75m0 3v.75m0 3V18m-9-5.25h5.25M7.5 15h3M3.375 5.25c-.621 0-1.125.504-1.125 1.125v3.026a2.999 2.999 0 010 5.198v3.026c0 .621.504 1.125 1.125 1.125h17.25c.621 0 1.125-.504 1.125-1.125v-3.026a2.999 2.999 0 010-5.198V6.375c0-.621-.504-1.125-1.125-1.125H3.375z" />
-                  </svg>
-                </div>
-                <span className="text-xs font-extrabold text-burgundy-deep">إدخال الرقم</span>
-              </div>
-
-              {/* الخطوة الثالثة: الاستلام (قيد الانتظار) */}
-              <div className="relative z-10 flex flex-col items-center gap-2 opacity-40">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-burgundy/20 bg-white text-burgundy/40">
-                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
-                  </svg>
-                </div>
-                <span className="text-xs font-semibold text-ink/60">تتبع الطلب</span>
-              </div>
-            </div>
-          </div>
-
-          <p className="mt-3 max-w-md text-base leading-7 text-ink/70 sm:text-lg">
-            اكتبوا رقم الطلب كما سجّله الكاشير.
-          </p>
+              </motion.div>
+            ) : null}
+          </motion.div>
         </div>
-
-        {/* القسم الأيسر / السفلي (الفورم) */}
-        <div className="flex w-full flex-col gap-5 rounded-[1.75rem] bg-paper p-5 ring-1 ring-burgundy/10 sm:p-8 lg:p-10 shadow-sm relative overflow-hidden">
-          <form onSubmit={(e) => handleSubmit(e)} className="flex flex-col gap-5 relative z-10">
-            <div>
-              <label htmlFor="order-number" className="mb-3 block text-center text-sm font-semibold text-burgundy-deep lg:text-start">
-                رقم الطلب
-              </label>
-              <div className="rounded-2xl bg-ivory px-3 ring-1 ring-burgundy/15 transition focus-within:bg-white focus-within:ring-2 focus-within:ring-gold sm:px-5">
-                <input
-                  id="order-number"
-                  name="order_number"
-                  dir="ltr"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  autoFocus
-                  autoComplete="off"
-                  enterKeyHint="go"
-                  placeholder="0047"
-                  value={number}
-                  onChange={(event) => {
-                    setNumber(event.target.value);
-                    setError("");
-                  }}
-                  className="h-16 w-full min-w-0 overflow-x-auto bg-transparent text-center font-sans text-3xl font-semibold tracking-[0.12em] text-burgundy-deep outline-none placeholder:text-xl placeholder:font-medium placeholder:tracking-normal placeholder:text-ink/25 sm:h-20 sm:text-4xl lg:h-24 lg:text-5xl"
-                />
-              </div>
-             
-            </div>
-
-            <ActionButton type="submit" size="lg" disabled={busy} className="w-full shadow-sm hover:shadow-md transition-shadow">
-              {busy ? "جاري التحقق..." : "تابع طلبي"}
-            </ActionButton>
-          </form>
-
-          {features.menu && !menuProblem ? (
-            <button
-              type="button"
-              onClick={() => setDoor("choose")}
-              className="relative z-10 cursor-pointer text-center text-sm font-semibold text-burgundy underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
-            >
-              {customerCopy.backToChoices}
-            </button>
-          ) : null}
-          {menuProblem ? (
-            <p role="alert" className="text-center text-sm font-medium text-burgundy">
-              {menuProblem}
-            </p>
-          ) : null}
-
-          {savedOrder && !number && !busy && (
-            <div className="mt-1 flex flex-col items-center border-t border-burgundy/5 pt-4 relative z-10">
-              <p className="mb-2 text-xs font-medium text-ink/50">هل تبحث عن طلبك السابق؟</p>
-              <button 
-                onClick={() => handleSubmit(null, savedOrder)}
-                className="flex items-center gap-2 rounded-xl bg-gold/10 px-4 py-2 text-sm font-bold text-gold-deep transition hover:bg-gold/20"
-              >
-                <span>متابعة الطلب رقم {savedOrder}</span>
-                <svg className="h-4 w-4 rtl:rotate-180" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
-                </svg>
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
+      </PageMotion>
     </Screen>
+  );
+}
+
+function EntrySteps({ reduce }) {
+  const steps = [
+    { id: "scan", label: "مسح الرمز", state: "done" },
+    { id: "number", label: "إدخال الرقم", state: "active" },
+    { id: "track", label: "تتبع الطلب", state: "idle" },
+  ];
+
+  return (
+    <div className="mx-auto w-full max-w-[20rem]">
+      <div className="relative flex items-start justify-between">
+        <div className="absolute top-[17px] right-8 left-8 z-0 h-0.5">
+          <div className="absolute inset-0 bg-line" />
+          <motion.div
+            className="absolute inset-0 origin-right bg-burgundy"
+            initial={reduce ? false : { scaleX: 0 }}
+            animate={{ scaleX: 0.5 }}
+            transition={{ duration: 0.6, ease: "easeInOut" }}
+          />
+        </div>
+        {steps.map((step) => (
+          <div key={step.id} className="relative z-10 flex w-16 flex-col items-center gap-2">
+            <div
+              className={`relative flex size-9 items-center justify-center rounded-full ${
+                step.state === "done" ? "bg-burgundy-deep text-[color:var(--restaurant-on-deep,#fdfaf1)]" : ""
+              } ${step.state === "active" ? "bg-burgundy text-on-primary ring-2 ring-burgundy" : ""} ${
+                step.state === "idle" ? "border border-dashed border-line bg-transparent text-burgundy/70" : ""
+              }`}
+            >
+              {step.state === "active" && !reduce ? (
+                <motion.span
+                  aria-hidden="true"
+                  className="absolute inset-0 rounded-full border border-burgundy"
+                  animate={{ scale: [1, 1.35], opacity: [0.45, 0] }}
+                  transition={{ duration: 1.6, repeat: Infinity, ease: "easeOut" }}
+                />
+              ) : null}
+              <span className="relative z-10 flex">
+                {step.state === "done" ? (
+                  <svg viewBox="0 0 24 24" className="size-4" aria-label={step.label}>
+                    <path d="M4.5 12.75l6 6 9-13.5" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                ) : null}
+                {step.state === "active" ? <Receipt className="size-4" strokeWidth={2} aria-label={step.label} /> : null}
+                {step.state === "idle" ? (
+                  <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="2" aria-label={step.label}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
+                  </svg>
+                ) : null}
+              </span>
+            </div>
+            <span className={`text-[12px] ${step.state === "active" ? "font-bold text-burgundy-deep" : "font-medium text-burgundy/70"}`}>
+              {step.label}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -569,7 +640,7 @@ function ChoiceDoor({ onTrack, onMenu, iconUrl = "", heroUrl = "" }) {
   );
 }
 
-function Screen({ children, align = "center", bare = false, theme }) {
+function Screen({ children, align = "center", bare = false, theme, decor = false }) {
   if (bare) {
     return (
       <main style={{ ...(theme || {}), backgroundColor: choiceCanvas }} className="min-h-dvh [overflow-anchor:none]">
@@ -579,10 +650,15 @@ function Screen({ children, align = "center", bare = false, theme }) {
   }
 
   return (
-    <main style={theme} className={`flex min-h-dvh flex-col bg-ivory px-4 pb-[max(1rem,env(safe-area-inset-bottom))] [overflow-anchor:none] sm:px-8 lg:px-12 ${align === "start" ? "overflow-x-visible pt-[max(0.75rem,env(safe-area-inset-top))]" : "overflow-x-clip pt-[max(2rem,env(safe-area-inset-top))]"}`}>
-      <div className={`${align === "start" ? "" : "my-auto"} w-full max-w-5xl self-center`}>{children}</div>
-
-      {align === "center" ? <PoweredBy className="text-ink/70" /> : null}
+    <main style={theme} className={`relative flex min-h-dvh flex-col px-4 pb-[max(1rem,env(safe-area-inset-bottom))] [overflow-anchor:none] ${decor ? "bg-[var(--choice-canvas,#fdfaf1)]" : "bg-ivory sm:px-8 lg:px-12"} ${align === "start" ? "overflow-x-visible pt-[max(0.75rem,env(safe-area-inset-top))]" : "overflow-x-clip pt-[max(1.25rem,env(safe-area-inset-top))]"}`}>
+      {decor ? (
+        <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
+          <div className="absolute -top-16 -start-16 size-56 rounded-full bg-burgundy opacity-[0.12] blur-3xl" />
+          <div className="absolute -end-10 bottom-16 size-64 rounded-full bg-burgundy opacity-[0.08] blur-3xl" />
+        </div>
+      ) : null}
+      <div className={`relative z-10 flex w-full flex-col self-center ${decor ? "max-w-sm flex-1" : `max-w-5xl ${align === "start" ? "" : "my-auto"}`}`}>{children}</div>
+      {align === "center" ? <PoweredBy className="relative z-10 text-[#5C4E32]" /> : null}
     </main>
   );
 }

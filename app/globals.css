@@ -27,7 +27,61 @@
   --color-muted-foreground: var(--restaurant-secondary-deep, #8c6e2c);
   --color-border: #eadfca;
   --color-ring: var(--restaurant-secondary, #cda649);
+  --color-line: var(--choice-line, #cda649);
+  --color-track-bg: var(--choice-canvas, #fbf7ee);
+  --color-track-surface: #ffffff;
+  --color-track-soft: var(--restaurant-foam, var(--restaurant-soft, #f8e8ed));
+  --color-track-line: var(--choice-line, #eadfca);
+  --color-track-strong: var(--restaurant-secondary, var(--choice-line, #cda649));
+  --color-track-brand: var(--restaurant-primary, #7e062a);
+  --color-track-on: var(--restaurant-on-primary, #fdfaf1);
+  --color-track-deep: var(--restaurant-primary-deep, #4a0418);
+  --color-track-on-deep: var(--restaurant-on-deep, #fdfaf1);
+  --color-track-ink: #2a1016;
+  --color-track-text: #2b2418;
+  --color-track-muted: #7a6e58;
+  --radius-track: 28px;
+  --radius-track-md: 16px;
+  --shadow-track: 0 1px 2px rgba(74, 54, 0, 0.04), 0 8px 24px rgba(74, 54, 0, 0.08);
+  --shadow-track-press: 0 4px 0 var(--restaurant-primary-deep, #4a0418);
+  --shadow-track-halo: 0 0 0 6px color-mix(in srgb, var(--restaurant-primary, #7e062a) 28%, transparent);
+  --shadow-track-halo-lg: 0 0 0 8px color-mix(in srgb, var(--restaurant-primary, #7e062a) 28%, transparent);
   --animate-shake: nadeeni-shake 0.48s ease-in-out;
+  --animate-shimmer: nadeeni-shimmer 5s ease-in-out infinite;
+  --animate-float: nadeeni-float 3s ease-in-out infinite;
+  --animate-ring-ripple: nadeeni-ring-ripple 0.45s ease-out;
+
+  @keyframes nadeeni-shimmer {
+    0%,
+    68% {
+      transform: translateX(280%);
+    }
+    84%,
+    100% {
+      transform: translateX(-280%);
+    }
+  }
+
+  @keyframes nadeeni-float {
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-4px);
+    }
+  }
+
+  @keyframes nadeeni-ring-ripple {
+    0% {
+      transform: scale(1);
+      opacity: 0.55;
+    }
+    100% {
+      transform: scale(1.85);
+      opacity: 0;
+    }
+  }
 
   @keyframes nadeeni-shake {
     0%,
@@ -64,8 +118,19 @@ html {
   color: #fdfaf1;
 }
 
+.order-track {
+  font-family: var(--font-tajawal), var(--font-cairo), "IBM Plex Sans Arabic", sans-serif;
+}
+
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;
+  }
+
+  .animate-shimmer,
+  .animate-float,
+  .animate-ring-ripple,
+  .animate-shake {
+    animation: none;
   }
 }

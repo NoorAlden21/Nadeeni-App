@@ -40,6 +40,8 @@ export function CashierDashboard({ token, user, onUnauthenticated, onInactive })
   const [delivered, setDelivered] = useState(0);
   const [draft, setDraft] = useState("");
   const [message, setMessage] = useState(null);
+  const [resendNote, setResendNote] = useState(null);
+  const [resendingId, setResendingId] = useState(null);
   const [listError, setListError] = useState("");
   const [loaded, setLoaded] = useState(false);
   const [adding, setAdding] = useState(false);
@@ -342,7 +344,7 @@ export function CashierDashboard({ token, user, onUnauthenticated, onInactive })
     }
   }
 
-  async function runOrderAction(id, path, onSuccess) {
+  async function runOrderAction(id, path, onSuccess, onFailure) {
     if (busyIds.current.has(id)) {
       return;
     }
@@ -352,10 +354,13 @@ export function CashierDashboard({ token, user, onUnauthenticated, onInactive })
         token,
         method: "POST",
       });
-      setOrders((current) => mergeOrder(current, order));
+      if (order?.id) {
+        setOrders((current) => mergeOrder(current, order));
+      }
       onSuccess(order);
     } catch (error) {
       handleFailure(error);
+      onFailure?.(error);
     } finally {
       busyIds.current.delete(id);
     }
@@ -378,8 +383,20 @@ export function CashierDashboard({ token, user, onUnauthenticated, onInactive })
   }
 
   function handleResend(id) {
-    runOrderAction(id, "/resend", () => {
-      setMessage({ tone: "status", text: cashierCopy.resent });
+    setResendingId(id);
+    setResendNote(null);
+    runOrderAction(
+      id,
+      "/resend",
+      () => {
+        setMessage({ tone: "status", text: cashierCopy.resent });
+        setResendNote({ id, tone: "status", text: cashierCopy.resent });
+      },
+      (error) => {
+        setResendNote({ id, tone: "error", text: staffErrorText(error) });
+      },
+    ).finally(() => {
+      setResendingId((current) => (current === id ? null : current));
     });
   }
 
@@ -671,8 +688,11 @@ export function CashierDashboard({ token, user, onUnauthenticated, onInactive })
             }}
             secondary={{
               label: "إعادة التنبيه",
+              pendingLabel: "يتم الإرسال",
               onAction: handleResend,
             }}
+            pendingId={resendingId}
+            note={resendNote}
           />
         </div>
           </>

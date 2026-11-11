@@ -3,6 +3,8 @@
 import dynamic from "next/dynamic";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { motion } from "framer-motion";
+import { spring } from "@/lib/motion";
 import { twenty48Copy } from "@/lib/games/twenty48";
 
 const Twenty48Game = dynamic(() => import("@/components/games/twenty48-game").then((mod) => mod.Twenty48Game), {
@@ -45,17 +47,24 @@ export function PlayWhileWaiting({ orderNumber, onOpenChange, paused = false }) 
   }, [open]);
 
   return (
-    <div className="mt-8 w-full">
-      <button
+    <div className="mt-6 w-full">
+      <motion.button
         type="button"
         aria-expanded={open}
         aria-haspopup="dialog"
         inert={open ? true : undefined}
         onClick={() => setOpenState(true)}
-        className="inline-flex h-12 w-full cursor-pointer items-center justify-center rounded-2xl bg-ivory text-base font-semibold text-burgundy-deep ring-1 ring-burgundy/15 touch-manipulation"
+        whileHover={{ scale: 1.02 }}
+        whileTap={{ scale: 0.97, y: 3 }}
+        transition={spring}
+        className="relative inline-flex h-[52px] w-full cursor-pointer items-center justify-center overflow-hidden rounded-track-md border-[1.5px] border-track-strong bg-track-soft text-[15px] font-bold text-track-deep transition-opacity duration-200 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,194,14,0.45)] touch-manipulation"
       >
-        {twenty48Copy.play}
-      </button>
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-y-0 start-0 w-1/3 animate-shimmer bg-gradient-to-l from-transparent via-white/80 to-transparent motion-reduce:animate-none"
+        />
+        <span className="relative">{twenty48Copy.play}</span>
+      </motion.button>
       {open
         ? createPortal(
             <div

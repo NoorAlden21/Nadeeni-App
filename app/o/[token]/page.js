@@ -7,8 +7,8 @@ export const metadata = {
 
 function Opening() {
   return (
-    <main className="flex min-h-dvh items-center justify-center bg-ivory px-4">
-      <p className="text-base font-medium text-burgundy-deep">يتم فتح الصفحة.</p>
+    <main className="order-track flex min-h-dvh items-center justify-center bg-track-bg px-4 text-track-text">
+      <p className="text-[15px] font-medium text-track-muted">يتم فتح الصفحة.</p>
     </main>
   );
 }

@@ -1,7 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { apiFetch, restaurantIconSrc } from "@/lib/api/client";
+import { AnimatePresence, motion, useAnimation } from "framer-motion";
+import { Check, Loader2 } from "lucide-react";
+import { apiFetch } from "@/lib/api/client";
+import { LoyaltyMeter, StampRow } from "@/components/motion/loyalty-motion";
+import { PressButton } from "@/components/motion/press-button";
+import { spring } from "@/lib/motion";
 import { cashierCopy } from "@/lib/cashier/orders";
 import { publicErrorText, readVisitorId, visitorHeaders } from "@/lib/customer/public";
 import { readFeatures } from "@/lib/features";
@@ -26,6 +31,20 @@ function phoneProblem(error) {
   return loyaltyPhoneError(error) || publicErrorText(error, loyaltyCopy.cardUnavailable);
 }
 
+function wait(ms) {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, ms);
+  });
+}
+
+const fieldClass =
+  "mt-2 h-[52px] w-full rounded-track-md border-[1.5px] border-track-line bg-track-surface px-4 text-[15px] text-track-text outline-none transition-[border-color,box-shadow] duration-200 focus:border-track-brand focus:ring-4 focus:ring-[rgba(255,194,14,0.25)]";
+
+const primaryButton =
+  "inline-flex h-[52px] w-full cursor-pointer items-center justify-center rounded-track-md bg-track-brand text-[15px] font-bold text-track-on shadow-track-press transition-opacity duration-200 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,194,14,0.45)] disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none";
+
+const labelClass = "mt-4 block text-[14px] font-bold text-track-ink";
+
 function LoyaltyPhone({ slug, allowed, onReload, onUnavailable }) {
   const [phone, setPhone] = useState("");
   const [name, setName] = useState("");
@@ -34,6 +53,23 @@ function LoyaltyPhone({ slug, allowed, onReload, onUnavailable }) {
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [sendState, setSendState] = useState("idle");
+  const alive = useRef(true);
+  const shake = useAnimation();
+
+  useEffect(() => {
+    alive.current = true;
+    return () => {
+      alive.current = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!error) {
+      return;
+    }
+    shake.start({ x: [0, -6, 6, -4, 4, 0], transition: { duration: 0.3 } });
+  }, [error, shake]);
 
   function fail(requestError) {
     if (requestError.status === 404) {
@@ -44,7 +80,7 @@ function LoyaltyPhone({ slug, allowed, onReload, onUnavailable }) {
   }
 
   async function requestCode() {
-    if (busy || !allowed.current) {
+    if (busy || sendState === "success" || !allowed.current) {
       return;
     }
 
@@ -69,6 +105,7 @@ function LoyaltyPhone({ slug, allowed, onReload, onUnavailable }) {
 
     setBusy(true);
     setError("");
+    let sent = false;
     try {
       const payload = await apiFetch(
         `/public/restaurants/${encodeURIComponent(slug)}/loyalty-card/phone/start`,
@@ -81,13 +118,26 @@ function LoyaltyPhone({ slug, allowed, onReload, onUnavailable }) {
       }
       setPhone(nextPhone);
       setCode("");
-      setStep("code");
       setNotice(loyaltyCopy.codeSent);
+      setSendState("success");
+      sent = true;
     } catch (requestError) {
       fail(requestError);
     } finally {
       setBusy(false);
     }
+    if (!sent || step !== "phone") {
+      if (sent) {
+        setSendState("idle");
+      }
+      return;
+    }
+    await wait(1500);
+    if (!alive.current) {
+      return;
+    }
+    setSendState("idle");
+    setStep("code");
   }
 
   async function confirmCode() {
@@ -145,120 +195,143 @@ function LoyaltyPhone({ slug, allowed, onReload, onUnavailable }) {
   }
 
   return (
-    <form method="post" onSubmit={onSubmit} className="mt-5 border-t border-burgundy/10 pt-4">
-      <p className="text-sm leading-6 text-ink/60">{loyaltyCopy.phoneOptional}</p>
-      {step === "phone" ? (
-        <>
-          <label htmlFor="loyalty-phone" className="mt-3 block text-sm font-semibold text-burgundy-deep">
-            {loyaltyCopy.phoneLabel}
-          </label>
-          <input
-            id="loyalty-phone"
-            dir="ltr"
-            inputMode="tel"
-            autoComplete="tel"
-            value={phone}
-            onChange={(event) => {
-              setPhone(event.target.value);
-              setError("");
-            }}
-            className="mt-2 h-12 w-full rounded-2xl bg-ivory px-4 font-sans text-base text-ink outline-none ring-1 ring-burgundy/15 focus:bg-white focus:ring-2 focus:ring-gold"
-          />
-          <label htmlFor="loyalty-name" className="mt-3 block text-sm font-semibold text-burgundy-deep">
-            {loyaltyCopy.nameLabel}
-            <span className="ms-2 font-medium text-ink/45">{loyaltyCopy.nameOptional}</span>
-          </label>
-          <input
-            id="loyalty-name"
-            autoComplete="name"
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-            className="mt-2 h-12 w-full rounded-2xl bg-ivory px-4 text-base text-ink outline-none ring-1 ring-burgundy/15 focus:bg-white focus:ring-2 focus:ring-gold"
-          />
-          <button
-            type="submit"
-            disabled={busy}
-            className="mt-4 inline-flex h-12 w-full cursor-pointer items-center justify-center rounded-2xl bg-burgundy font-semibold text-on-primary disabled:opacity-40"
+    <form method="post" onSubmit={onSubmit} className="mt-6 border-t border-track-line pt-4 text-start">
+      <p className="text-[13px] leading-6 text-track-muted">{loyaltyCopy.phoneOptional}</p>
+      <motion.div animate={shake}>
+        {step === "phone" ? (
+          <>
+            <label htmlFor="loyalty-phone" className={labelClass}>
+              {loyaltyCopy.phoneLabel}
+            </label>
+            <input
+              id="loyalty-phone"
+              dir="ltr"
+              inputMode="tel"
+              autoComplete="tel"
+              placeholder="05XXXXXXXX"
+              value={phone}
+              onChange={(event) => {
+                setPhone(event.target.value);
+                setError("");
+              }}
+              className={`${fieldClass} font-sans tabular-nums`}
+            />
+            <label htmlFor="loyalty-name" className={labelClass}>
+              {loyaltyCopy.nameLabel}
+              <span className="ms-2 text-[12px] font-medium text-track-muted">{loyaltyCopy.nameOptional}</span>
+            </label>
+            <input
+              id="loyalty-name"
+              autoComplete="name"
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              className={fieldClass}
+            />
+            {sendState === "success" ? (
+              <p className="mt-4 text-[13px] font-medium leading-6 text-track-deep">{notice}</p>
+            ) : null}
+            <PressButton
+              type="submit"
+              disabled={busy || sendState === "success"}
+              className={`mt-4 ${primaryButton}`}
+            >
+              {sendState === "success" ? (
+                <motion.span initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={spring} aria-hidden="true">
+                  <Check className="size-5" strokeWidth={2} />
+                </motion.span>
+              ) : busy ? (
+                <>
+                  <Loader2 className="size-5 animate-spin" strokeWidth={2} aria-hidden="true" />
+                  <span className="sr-only">{loyaltyCopy.sendingCode}</span>
+                </>
+              ) : (
+                loyaltyCopy.sendCode
+              )}
+            </PressButton>
+          </>
+        ) : (
+          <>
+            <p className="mt-4 text-[13px] font-medium leading-6 text-track-deep">{notice}</p>
+            <p className="mt-1 text-[13px] leading-6 text-track-muted">{loyaltyCopy.phoneCodeHint}</p>
+            <p className="mt-4 text-[14px] font-bold text-track-ink">
+              {loyaltyCopy.phonePending}{" "}
+              <bdi className="font-sans tabular-nums tracking-wider">{phone.slice(-4)}</bdi>
+            </p>
+            <label htmlFor="loyalty-name" className={labelClass}>
+              {loyaltyCopy.nameLabel}
+              <span className="ms-2 text-[12px] font-medium text-track-muted">{loyaltyCopy.nameOptional}</span>
+            </label>
+            <input
+              id="loyalty-name"
+              autoComplete="name"
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              className={fieldClass}
+            />
+            <label htmlFor="loyalty-phone-code" className={labelClass}>
+              {loyaltyCopy.phoneCodeLabel}
+            </label>
+            <input
+              id="loyalty-phone-code"
+              dir="ltr"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              value={code}
+              onChange={(event) => {
+                setCode(westernDigits(event.target.value).replace(/\D/g, "").slice(0, 6));
+                setError("");
+              }}
+              className={`${fieldClass} text-center font-sans text-2xl font-bold tracking-[0.28em] text-track-ink tabular-nums`}
+            />
+            <PressButton
+              type="submit"
+              disabled={busy}
+              className={`mt-4 ${primaryButton}`}
+            >
+              {busy ? loyaltyCopy.verifyingPhone : loyaltyCopy.verifyPhone}
+            </PressButton>
+            <PressButton
+              disabled={busy}
+              onClick={requestCode}
+              className="mt-2 inline-flex h-11 w-full cursor-pointer items-center justify-center rounded-track-md text-[14px] font-bold text-track-deep transition-opacity duration-200 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(255,194,14,0.45)] disabled:opacity-40"
+            >
+              {loyaltyCopy.requestCode}
+            </PressButton>
+            <PressButton
+              disabled={busy}
+              onClick={() => {
+                setStep("phone");
+                setNotice("");
+                setCode("");
+                setError("");
+              }}
+              className="mt-1 inline-flex h-10 w-full cursor-pointer items-center justify-center text-[13px] font-medium text-track-muted transition-opacity duration-200 disabled:opacity-40"
+            >
+              {loyaltyCopy.changePhone}
+            </PressButton>
+          </>
+        )}
+      </motion.div>
+      <AnimatePresence>
+        {error ? (
+          <motion.p
+            key={error}
+            role="alert"
+            initial={{ opacity: 0, y: -6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.25, ease: "easeOut" }}
+            className="mt-3 text-[13px] font-medium text-track-deep"
           >
-            {busy ? loyaltyCopy.sendingCode : loyaltyCopy.sendCode}
-          </button>
-        </>
-      ) : (
-        <>
-          <p className="mt-3 text-sm font-semibold leading-6 text-burgundy">{notice}</p>
-          <p className="mt-1 text-sm leading-6 text-ink/60">{loyaltyCopy.phoneCodeHint}</p>
-          <p className="mt-3 text-sm font-semibold text-ink/70">
-            {loyaltyCopy.phonePending}
-            <span dir="ltr" className="ms-2 font-sans tabular-nums tracking-wider text-burgundy-deep">
-              {phone.slice(-4)}
-            </span>
-          </p>
-          <label htmlFor="loyalty-name" className="mt-3 block text-sm font-semibold text-burgundy-deep">
-            {loyaltyCopy.nameLabel}
-            <span className="ms-2 font-medium text-ink/45">{loyaltyCopy.nameOptional}</span>
-          </label>
-          <input
-            id="loyalty-name"
-            autoComplete="name"
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-            className="mt-2 h-12 w-full rounded-2xl bg-ivory px-4 text-base text-ink outline-none ring-1 ring-burgundy/15 focus:bg-white focus:ring-2 focus:ring-gold"
-          />
-          <label htmlFor="loyalty-phone-code" className="mt-3 block text-sm font-semibold text-burgundy-deep">
-            {loyaltyCopy.phoneCodeLabel}
-          </label>
-          <input
-            id="loyalty-phone-code"
-            dir="ltr"
-            inputMode="numeric"
-            autoComplete="one-time-code"
-            value={code}
-            onChange={(event) => {
-              setCode(westernDigits(event.target.value).replace(/\D/g, "").slice(0, 6));
-              setError("");
-            }}
-            className="mt-2 h-12 w-full rounded-2xl bg-ivory px-4 text-center font-sans text-2xl font-bold tracking-[0.28em] text-burgundy-deep outline-none ring-1 ring-burgundy/15 focus:bg-white focus:ring-2 focus:ring-gold"
-          />
-          <button
-            type="submit"
-            disabled={busy}
-            className="mt-4 inline-flex h-12 w-full cursor-pointer items-center justify-center rounded-2xl bg-burgundy font-semibold text-on-primary disabled:opacity-40"
-          >
-            {busy ? loyaltyCopy.verifyingPhone : loyaltyCopy.verifyPhone}
-          </button>
-          <button
-            type="button"
-            disabled={busy}
-            onClick={requestCode}
-            className="mt-2 inline-flex h-11 w-full cursor-pointer items-center justify-center rounded-2xl text-sm font-semibold text-burgundy disabled:opacity-40"
-          >
-            {loyaltyCopy.requestCode}
-          </button>
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => {
-              setStep("phone");
-              setNotice("");
-              setCode("");
-              setError("");
-            }}
-            className="mt-1 inline-flex h-10 w-full cursor-pointer items-center justify-center text-sm font-semibold text-ink/50 disabled:opacity-40"
-          >
-            {loyaltyCopy.changePhone}
-          </button>
-        </>
-      )}
-      {error ? (
-        <p role="alert" className="mt-3 text-sm font-semibold text-burgundy">
-          {error}
-        </p>
-      ) : null}
+            {error}
+          </motion.p>
+        ) : null}
+      </AnimatePresence>
     </form>
   );
 }
 
-export function CustomerLoyalty({ slug, stampAdded, iconUrl = "", onPaper = true }) {
+export function CustomerLoyalty({ slug, stampAdded }) {
   const [card, setCard] = useState(null);
   const [off, setOff] = useState(false);
   const [notice, setNotice] = useState("");
@@ -268,18 +341,33 @@ export function CustomerLoyalty({ slug, stampAdded, iconUrl = "", onPaper = true
   const [claimBusy, setClaimBusy] = useState(false);
   const [now, setNow] = useState(null);
   const [pulse, setPulse] = useState(0);
-  const [mark, setMark] = useState(iconUrl);
   const noted = useRef(false);
   const claimedPending = useRef(null);
   const watch = useRef(false);
   const phoneAllowed = useRef(false);
   const reloadCard = useRef(async () => {});
+  const prevMarks = useRef(null);
+  const [slamIndex, setSlamIndex] = useState(-1);
 
   useEffect(() => {
-    if (iconUrl) {
-      setMark(iconUrl);
+    if (!card) {
+      return;
     }
-  }, [iconUrl]);
+    const filled = stampProgress(card).filled;
+    const pending = card.pendingRewards;
+    const previous = prevMarks.current;
+    prevMarks.current = { filled, pending };
+    if (!previous) {
+      return;
+    }
+    if (filled > previous.filled) {
+      setSlamIndex(filled - 1);
+      return;
+    }
+    if (pending > previous.pending && Number.isInteger(card.stampsRequired)) {
+      setSlamIndex(card.stampsRequired - 1);
+    }
+  }, [card]);
 
   useEffect(() => {
     if (!stampAdded || noted.current) {
@@ -373,10 +461,6 @@ export function CustomerLoyalty({ slug, stampAdded, iconUrl = "", onPaper = true
           phoneAllowed.current = false;
           setOff(true);
           return;
-        }
-        const icon = restaurantIconSrc(restaurant?.icon_url);
-        if (icon) {
-          setMark(icon);
         }
         phoneAllowed.current = true;
         enabled = true;
@@ -472,9 +556,9 @@ export function CustomerLoyalty({ slug, stampAdded, iconUrl = "", onPaper = true
       return null;
     }
     return (
-      <div className="mt-6 w-full text-center">
-        {notice ? <p className={`text-sm font-semibold ${onPaper ? "text-burgundy" : "text-gold"}`}>{notice}</p> : null}
-        {problem ? <p className="mt-2 text-sm font-medium text-burgundy">{problem}</p> : null}
+      <div className="w-full text-center">
+        {notice ? <p className="text-[14px] font-bold text-track-deep">{notice}</p> : null}
+        {problem ? <p className="mt-2 text-[13px] font-medium text-track-deep">{problem}</p> : null}
       </div>
     );
   }
@@ -485,106 +569,87 @@ export function CustomerLoyalty({ slug, stampAdded, iconUrl = "", onPaper = true
   const liveCode = Boolean(claim?.code) && remaining > 0;
 
   return (
-    <section className="mt-6 w-full rounded-[1.6rem] bg-paper p-5 text-ink shadow-[0_20px_50px_-28px_rgba(74,4,24,0.28)] ring-1 ring-burgundy/10">
-      {notice ? <p className="text-sm font-semibold text-burgundy">{notice}</p> : null}
-      <h2 className="font-display text-xl font-semibold text-burgundy-deep">بطاقة الولاء</h2>
+    <motion.section
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.35, ease: "easeOut", delay: 0.16 }}
+      className="w-full rounded-track border border-track-line bg-track-surface px-5 py-6 text-center shadow-track"
+    >
+      {notice ? <p className="mb-2 text-[14px] font-bold text-track-deep">{notice}</p> : null}
+      <h2 className="text-[20px] font-bold text-track-deep">بطاقة الولاء</h2>
       {card.rewardTextAr ? (
-        <p className="mt-1 text-sm leading-6 text-ink/70">{card.rewardTextAr}</p>
+        <p className="mt-2 text-[14px] leading-6 text-track-text [unicode-bidi:plaintext]">{card.rewardTextAr}</p>
       ) : null}
-      <div className="mt-4">
-        <div className="flex items-baseline justify-between gap-3 text-sm font-semibold">
-          <p className="text-ink/70">
-            <span dir="ltr" className="font-sans tabular-nums">
-              {progress.filled}
-              <span className="text-ink/35"> / </span>
-              {progress.goal}
-            </span>
-            <span className="ms-1 text-ink/45">أختام</span>
-          </p>
-          <p dir="ltr" className="font-sans tabular-nums text-ink/70">
-            {progress.percent}%
-          </p>
-        </div>
-        <div
-          className="mt-2 h-2.5 overflow-hidden rounded-full bg-[#e5e5ea]"
-          role="progressbar"
-          aria-valuemin={0}
-          aria-valuemax={progress.goal}
-          aria-valuenow={progress.filled}
-          aria-label={loyaltyCopy.goalLabel}
-        >
-          <div
-            className="h-full rounded-full bg-[#007aff]"
-            style={{ width: `${progress.percent}%` }}
-          />
-        </div>
-      </div>
-      <ul className="mt-4 flex flex-wrap justify-center gap-2">
-        {slots.map((filled, index) => (
-          <li
-            key={index}
-            className={`size-10 overflow-hidden rounded-full ${
-              filled
-                ? "bg-gold ring-2 ring-gold"
-                : "bg-ivory ring-1 ring-burgundy/15"
-            }`}
-          >
-            {filled && mark ? (
-              <img src={mark} alt="" className="size-full object-cover" />
-            ) : null}
-          </li>
-        ))}
-      </ul>
+      <LoyaltyMeter
+        percent={progress.percent}
+        filled={progress.filled}
+        goal={progress.goal}
+        label={loyaltyCopy.goalLabel}
+      />
+      <StampRow slots={slots} slamIndex={slamIndex} />
       {card.pendingRewards >= 1 ? (
-        <p className="mt-4 inline-flex rounded-full bg-gold/20 px-3 py-1 text-sm font-bold text-gold-deep">
+        <p className="mt-4 inline-flex rounded-full bg-track-soft px-3 py-1 text-[13px] font-bold text-track-deep">
           {rewardReadyLabel(card.pendingRewards)}
         </p>
       ) : null}
       {card.state === "paused" ? (
-        <p className="mt-3 text-sm leading-6 text-ink/60">{loyaltyCopy.paused}</p>
+        <p className="mt-4 text-[13px] leading-6 text-track-muted">{loyaltyCopy.paused}</p>
       ) : null}
       {claim?.code ? (
         <div className="mt-4">
-          <p className="text-sm font-semibold text-ink/50">{loyaltyCopy.codeLabel}</p>
-          <p dir="ltr" className="font-sans text-4xl font-bold tracking-[0.28em] text-burgundy-deep">
+          <p className="text-[13px] font-medium text-track-muted">{loyaltyCopy.codeLabel}</p>
+          <p dir="ltr" className="font-sans text-[2rem] font-extrabold tracking-[0.28em] text-track-ink tabular-nums">
             {claim.code}
           </p>
-          <p dir="ltr" className="mt-1 font-sans text-sm font-semibold tabular-nums text-ink/60">
+          <p dir="ltr" className="mt-1 font-sans text-[13px] font-bold tabular-nums text-track-muted">
             {remaining > 0 ? countdownLabel(remaining) : loyaltyCopy.codeExpired}
           </p>
         </div>
       ) : null}
       {card.pendingRewards >= 1 && !liveCode ? (
-        <button
-          type="button"
+        <PressButton
           onClick={claimCode}
           disabled={claimBusy}
-          className="mt-4 inline-flex h-12 w-full cursor-pointer items-center justify-center rounded-2xl bg-burgundy font-semibold text-on-primary disabled:opacity-40"
+          className={`mt-4 ${primaryButton}`}
         >
           {claimBusy ? loyaltyCopy.claiming : claim ? loyaltyCopy.claimAgain : loyaltyCopy.claim}
-        </button>
+        </PressButton>
       ) : null}
-      {claimError ? <p className="mt-3 text-sm font-semibold text-burgundy">{claimError}</p> : null}
-      {problem ? <p className="mt-3 text-sm font-medium text-burgundy">{problem}</p> : null}
-      {card.phoneLast4 ? (
-        <p className="mt-5 border-t border-burgundy/10 pt-4 text-sm font-semibold text-ink/70">
-          {loyaltyCopy.phoneSaved}
-          <span dir="ltr" className="ms-2 font-sans tabular-nums tracking-wider text-burgundy-deep">
-            {card.phoneLast4}
-          </span>
-        </p>
-      ) : (
-        <LoyaltyPhone
-          slug={slug}
-          allowed={phoneAllowed}
-          onReload={() => reloadCard.current()}
-          onUnavailable={() => {
-            phoneAllowed.current = false;
-            setOff(true);
-            setCard(null);
-          }}
-        />
-      )}
-    </section>
+      {claimError ? <p className="mt-3 text-[13px] font-medium text-track-deep">{claimError}</p> : null}
+      {problem ? <p className="mt-3 text-[13px] font-medium text-track-deep">{problem}</p> : null}
+      <AnimatePresence mode="wait">
+        {card.phoneLast4 ? (
+          <motion.p
+            key="saved"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.3, ease: "easeOut" }}
+            className="mt-6 border-t border-track-line pt-4 text-[14px] font-bold text-track-ink"
+          >
+            {loyaltyCopy.phoneSaved}{" "}
+            <bdi className="font-sans tabular-nums tracking-wider">{card.phoneLast4}</bdi>
+          </motion.p>
+        ) : (
+          <motion.div
+            key="form"
+            initial={{ opacity: 1 }}
+            exit={{ opacity: 0, y: 8 }}
+            transition={{ duration: 0.3, ease: "easeOut" }}
+          >
+            <LoyaltyPhone
+              slug={slug}
+              allowed={phoneAllowed}
+              onReload={() => reloadCard.current()}
+              onUnavailable={() => {
+                phoneAllowed.current = false;
+                setOff(true);
+                setCard(null);
+              }}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.section>
   );
 }

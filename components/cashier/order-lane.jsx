@@ -71,6 +71,8 @@ function OrderCard({
   onShowQr,
   trailing,
   timeZone,
+  pendingId,
+  note,
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(order.order_number);
@@ -266,12 +268,15 @@ function OrderCard({
                 <>
                   <ActionButton
                     variant={secondary.variant || "quiet"}
+                    disabled={pendingId === order.id}
                     onClick={() => secondary.onAction(order.id)}
                     aria-label={`${secondary.label} للطلب ${order.order_number}`}
                     className="w-full focus-visible:ring-offset-paper @min-[22rem]:min-w-0 @min-[22rem]:flex-1"
                   >
                     <span className="truncate font-sans text-sm font-semibold">
-                      {secondary.label}
+                      {pendingId === order.id && secondary.pendingLabel
+                        ? secondary.pendingLabel
+                        : secondary.label}
                     </span>
                   </ActionButton>
                   {trailing ? (
@@ -296,6 +301,16 @@ function OrderCard({
             </>
           )}
         </div>
+        {note?.id === order.id ? (
+          <p
+            role={note.tone === "error" ? "alert" : "status"}
+            className={`mt-2 text-sm font-medium leading-6 ${
+              note.tone === "error" ? "text-burgundy" : "text-gold-deep"
+            }`}
+          >
+            {note.text}
+          </p>
+        ) : null}
       </div>
     </div>
   );
@@ -325,6 +340,8 @@ export function OrderLane({
   onShowQr,
   trailing,
   timeZone,
+  pendingId,
+  note,
   showEmpty = true,
 }) {
   const reduceMotion = useReducedMotion();
@@ -385,6 +402,8 @@ export function OrderLane({
                   onShowQr={onShowQr}
                   trailing={trailing}
                   timeZone={timeZone}
+                  pendingId={pendingId}
+                  note={note}
                 />
               </motion.li>
             ))}

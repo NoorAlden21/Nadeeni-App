@@ -144,7 +144,7 @@ export function OwnerCustomers({ stats, from, to }) {
 
   return (
       <OwnerSection title="الزبائن" from={from} to={to}>
-        <div className="mt-5 grid grid-cols-3 gap-2 sm:gap-3">
+        <div className="mt-5 flex w-full flex-row flex-nowrap gap-2 sm:gap-3">
           <StatTile label="الإجمالي" value={browsers} accent="burgundy" reserveDetail />
           <StatTile label="جدد" value={fresh} detail={formatShare(sharePercent(fresh, browsers))} accent="gold" />
           <StatTile
@@ -184,16 +184,7 @@ export function OwnerOrders({ stats, from, to }) {
 
   return (
       <OwnerSection title="الطلبات" from={from} to={to}>
-        <div className="mt-5 grid items-center gap-4 rounded-[1.25rem] bg-white/90 p-4 ring-1 ring-burgundy/10 sm:grid-cols-[1fr_10rem]">
-          <div className="flex flex-col gap-3">
-            <Meter label="الطلبات" value={orders} max={scale} color={burgundyDeep} />
-            <Meter label="صارت جاهزة" value={ready} max={scale} color={gold} />
-            <Meter label="أُلغيت" value={cancelled} max={scale} color={burgundy} />
-            <Meter label="لم تُستلم" value={uncollected} max={scale} color={goldDeep} />
-          </div>
-          <ReadyRing ready={ready} uncollected={uncollected} total={orders} />
-        </div>
-        <div className="mt-3 grid grid-cols-2 gap-2 sm:gap-3">
+        <div className="mt-5 flex w-full flex-row flex-nowrap gap-2 sm:gap-3">
           <StatTile
             label="متوسط التجهيز"
             value={<DurationReadout parts={readyDurationParts(stats?.average_ready_seconds)} />}
@@ -206,6 +197,15 @@ export function OwnerOrders({ stats, from, to }) {
           />
           <StatTile label="تقييم الخدمة" value={formatRating(stats?.average_service_rating)} accent="gold" />
           <StatTile label="تقييم الطعام" value={formatRating(stats?.average_food_rating)} accent="cream" />
+        </div>
+        <div className="mt-3 grid items-center gap-4 rounded-[1.25rem] bg-white/90 p-4 ring-1 ring-burgundy/10 sm:grid-cols-[1fr_10rem]">
+          <div className="flex flex-col gap-3">
+            <Meter label="الطلبات" value={orders} max={scale} color={burgundyDeep} />
+            <Meter label="صارت جاهزة" value={ready} max={scale} color={gold} />
+            <Meter label="أُلغيت" value={cancelled} max={scale} color={burgundy} />
+            <Meter label="لم تُستلم" value={uncollected} max={scale} color={goldDeep} />
+          </div>
+          <ReadyRing ready={ready} uncollected={uncollected} total={orders} />
         </div>
       </OwnerSection>
   );
