@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion, useAnimation, useReducedMotion } from "framer-motion";
-import { ArrowLeft, ArrowRight, Loader2, Receipt } from "lucide-react";
+import { ArrowLeft, ArrowRight, History, Keyboard, Loader2 } from "lucide-react";
 import { PoweredBy } from "@/components/brand/powered-by";
 import { ActionButton } from "@/components/cashier/action-button";
 import { PageMotion } from "@/components/motion/page-motion";
@@ -11,7 +11,7 @@ import { PressButton } from "@/components/motion/press-button";
 import { useSafeReducedMotion } from "@/components/motion/use-reduced-motion";
 import { PublicMenu } from "@/components/customer/public-menu";
 import { Card } from "@/components/ui/card";
-import { fadeUp, stagger } from "@/lib/motion";
+import { fadeUp, spring, stagger } from "@/lib/motion";
 // import { RestaurantContact } from "@/components/customer/restaurant-contact";
 import { apiFetch, menuAssetSrc, restaurantIconSrc } from "@/lib/api/client";
 import { readPublicMenu } from "@/lib/customer/public-menu";
@@ -28,6 +28,26 @@ import {
   rememberRestaurantIcon,
   rememberRestaurantSlug,
 } from "@/lib/customer/public";
+
+const enter = {
+  hidden: stagger.hidden,
+  show: { transition: { ...stagger.show.transition, delayChildren: 0.05 } },
+};
+
+const backIn = {
+  hidden: { opacity: 0, x: 8 },
+  show: { opacity: 1, x: 0, transition: { duration: 0.3, ease: "easeOut" } },
+};
+
+const logoIn = {
+  hidden: { opacity: 0, scale: 0.9 },
+  show: { opacity: 1, scale: 1, transition: spring },
+};
+
+const cardRise = {
+  hidden: { opacity: 0, y: 24 },
+  show: fadeUp.show,
+};
 
 export function RestaurantEntry({ slug }) {
   const router = useRouter();
@@ -309,52 +329,69 @@ export function RestaurantEntry({ slug }) {
   return (
     <Screen theme={theme} decor>
       <PageMotion>
-        {features.menu && !menuProblem ? (
-          <PressButton
-            type="button"
-            onClick={() => setDoor("choose")}
-            className="inline-flex min-h-11 items-center gap-1 self-start px-1 text-[14px] font-bold text-burgundy focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-burgundy/40"
-          >
-            <ArrowRight className="size-4" aria-hidden="true" />
-            {customerCopy.backToChoices}
-          </PressButton>
-        ) : null}
-        <div className="flex flex-1 flex-col justify-center py-6">
-          <motion.div className="flex w-full flex-col items-center gap-8 text-center" variants={stagger} initial="hidden" animate="show">
-            <motion.header variants={fadeUp} className="flex flex-col items-center">
-              {iconUrl ? (
-                <div className="mb-4 flex size-16 items-center justify-center rounded-2xl bg-white p-1.5 shadow-[0_4px_16px_rgba(74,54,0,0.06)]">
-                  <img src={iconUrl} alt="" className="size-full rounded-xl object-cover" />
-                </div>
-              ) : null}
-              <p className="text-[13px] font-medium text-burgundy/70">أهلاً بك في مطعم</p>
-              {name ? (
-                <h1 className="mt-1 max-w-full font-display text-[1.75rem] leading-tight font-bold wrap-break-word text-burgundy-deep">
-                  {name}
-                </h1>
-              ) : null}
-            </motion.header>
+        <motion.div
+          className="flex flex-1 flex-col py-2 text-center"
+          variants={enter}
+          initial="hidden"
+          animate="show"
+        >
+          {features.menu && !menuProblem ? (
+            <motion.div variants={backIn} className="self-start">
+              <PressButton
+                type="button"
+                onClick={() => setDoor("choose")}
+                className="inline-flex min-h-11 items-center gap-1 px-1 text-[15px] font-bold text-burgundy-deep focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-burgundy/25"
+              >
+                <ArrowRight className="size-4" aria-hidden="true" />
+                {customerCopy.backToChoices}
+              </PressButton>
+            </motion.div>
+          ) : null}
+          <motion.div variants={enter} className="my-auto flex w-full flex-col items-center gap-6">
+          <motion.div variants={logoIn} className="flex justify-center">
+            {iconUrl ? (
+              <div className="relative flex size-14 items-center justify-center overflow-hidden rounded-2xl bg-paper p-1 shadow-track">
+                <img src={iconUrl} alt="" className="size-full rounded-xl object-cover" />
+                {reduceMotion ? null : (
+                  <motion.span
+                    aria-hidden="true"
+                    className="pointer-events-none absolute inset-y-0 w-1/2 bg-[linear-gradient(90deg,transparent,color-mix(in_srgb,white_75%,transparent),transparent)]"
+                    initial={{ x: "140%" }}
+                    animate={{ x: "-140%" }}
+                    transition={{ duration: 1.2, ease: "easeInOut", delay: 0.2 }}
+                  />
+                )}
+              </div>
+            ) : null}
+          </motion.div>
+          <motion.div variants={fadeUp} className="flex flex-col items-center gap-1">
+            <p className="text-[13px] font-medium text-foreground/70">أهلاً بك في مطعم</p>
+            {name ? (
+              <h1 className="max-w-full font-display text-[1.75rem] leading-tight font-bold wrap-break-word text-burgundy-deep">
+                {name}
+              </h1>
+            ) : null}
+          </motion.div>
 
             <motion.div variants={fadeUp} className="w-full">
               <EntrySteps reduce={reduceMotion} />
             </motion.div>
 
-            <motion.div className="w-full" variants={fadeUp} animate={leaving ? { opacity: 0 } : undefined}>
-              <Card className="rounded-track border border-line bg-white px-5 py-6 text-center shadow-track ring-0">
-                <Receipt className="mx-auto size-6 text-burgundy" strokeWidth={2} aria-hidden="true" />
-                <label htmlFor="order-number" className="mt-3 block text-[1.15rem] font-bold text-burgundy-deep">
+            <motion.div className="w-full" variants={cardRise} animate={leaving ? { opacity: 0 } : undefined}>
+              <Card className="rounded-track border border-line bg-paper px-4 py-4 text-center shadow-track ring-0">
+                <label htmlFor="order-number" className="block text-[1.15rem] font-bold text-burgundy-deep">
                   رقم الطلب
                 </label>
-                <p id="order-number-hint" className="mt-2 text-[14px] leading-6 text-burgundy/70">
+                <p id="order-number-hint" className="mt-2 text-[14px] leading-6 text-foreground/70">
                   اكتبوا رقم الطلب كما سجّله الكاشير.
                 </p>
                 <form onSubmit={(event) => handleSubmit(event)} className="mt-4 flex flex-col gap-4">
                   <motion.div animate={inputMotion}>
                     <div
-                      className={`rounded-2xl border-[1.5px] bg-white transition-[border-color,box-shadow] duration-200 ${
+                      className={`rounded-2xl border-[1.5px] bg-paper transition-[border-color,box-shadow] duration-200 ${
                         error
                           ? "border-[#C45C5C]"
-                          : "border-line focus-within:border-burgundy focus-within:ring-4 focus-within:ring-burgundy/25"
+                          : "border-line focus-within:border-burgundy"
                       }`}
                     >
                       <input
@@ -374,7 +411,7 @@ export function RestaurantEntry({ slug }) {
                           setNumber(event.target.value);
                           setError("");
                         }}
-                        className="h-16 w-full min-w-0 overflow-x-auto bg-transparent text-center font-sans text-[32px] font-bold tracking-[0.15em] text-burgundy-deep tabular-nums outline-none placeholder:text-[24px] placeholder:font-medium placeholder:tracking-[0.15em] placeholder:text-burgundy/30"
+                        className="h-16 w-full min-w-0 overflow-x-auto bg-transparent text-center font-sans text-[32px] font-bold tracking-[0.15em] text-burgundy-deep tabular-nums outline-none placeholder:text-[22px] placeholder:font-medium placeholder:tracking-[0.15em] placeholder:text-foreground/40"
                       />
                     </div>
                   </motion.div>
@@ -396,10 +433,11 @@ export function RestaurantEntry({ slug }) {
                   <PressButton
                     type="submit"
                     disabled={busy || numberEmpty}
-                    className={`inline-flex h-[52px] w-full items-center justify-center gap-2 rounded-2xl text-[15px] font-bold focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-burgundy/40 disabled:cursor-not-allowed ${
+                    whileTap={busy || numberEmpty ? undefined : { scale: 0.98 }}
+                    className={`inline-flex h-[52px] w-full items-center justify-center gap-2 rounded-2xl text-[15px] font-bold shadow-none focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-burgundy/25 disabled:cursor-not-allowed ${
                       numberEmpty && !busy
-                        ? "bg-wash text-ink/45 shadow-none"
-                        : "cursor-pointer bg-burgundy text-on-primary shadow-track-press"
+                        ? "bg-background text-foreground/45"
+                        : "cursor-pointer bg-burgundy text-on-primary"
                     }`}
                   >
                     <span>{busy ? "جاري التحقق..." : "تابع طلبي"}</span>
@@ -420,13 +458,16 @@ export function RestaurantEntry({ slug }) {
             ) : null}
 
             {savedOrder && numberEmpty && !busy ? (
-              <motion.div variants={fadeUp} className="w-full">
+              <motion.div variants={fadeUp} transition={{ delay: 0.2 }} className="w-full">
                 <div className="rounded-2xl border border-dashed border-line bg-foam px-4 py-4">
-                  <p className="text-[13px] font-medium text-burgundy/70">هل تبحث عن طلبك السابق؟</p>
+                  <p className="flex items-center justify-center gap-2 text-[13px] font-medium text-foreground/70">
+                    <History className="size-4" strokeWidth={2} aria-hidden="true" />
+                    هل تبحث عن طلبك السابق؟
+                  </p>
                   <button
                     type="button"
                     onClick={() => handleSubmit(null, savedOrder)}
-                    className="mt-3 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border-[1.5px] border-burgundy bg-white px-4 text-[15px] font-bold text-burgundy focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-burgundy/40"
+                    className="mt-3 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border-[1.5px] border-line bg-foam px-4 text-[15px] font-bold text-burgundy-deep focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-burgundy/25"
                   >
                     <span>متابعة الطلب رقم {savedOrder}</span>
                     <ArrowLeft className="size-4" aria-hidden="true" />
@@ -435,7 +476,7 @@ export function RestaurantEntry({ slug }) {
               </motion.div>
             ) : null}
           </motion.div>
-        </div>
+          </motion.div>
       </PageMotion>
     </Screen>
   );
@@ -451,20 +492,12 @@ function EntrySteps({ reduce }) {
   return (
     <div className="mx-auto w-full max-w-[20rem]">
       <div className="relative flex items-start justify-between">
-        <div className="absolute top-[17px] right-8 left-8 z-0 h-0.5">
-          <div className="absolute inset-0 bg-line" />
-          <motion.div
-            className="absolute inset-0 origin-right bg-burgundy"
-            initial={reduce ? false : { scaleX: 0 }}
-            animate={{ scaleX: 0.5 }}
-            transition={{ duration: 0.6, ease: "easeInOut" }}
-          />
-        </div>
+        <div className="absolute top-[17px] right-8 left-1/2 z-0 h-0.5 border-t-2 border-dashed border-burgundy" />
         {steps.map((step) => (
           <div key={step.id} className="relative z-10 flex w-16 flex-col items-center gap-2">
             <div
               className={`relative flex size-9 items-center justify-center rounded-full ${
-                step.state === "done" ? "bg-burgundy-deep text-[color:var(--restaurant-on-deep,#fdfaf1)]" : ""
+                step.state === "done" ? "bg-burgundy-deep text-[color:var(--restaurant-on-deep,var(--color-background))]" : ""
               } ${step.state === "active" ? "bg-burgundy text-on-primary ring-2 ring-burgundy" : ""} ${
                 step.state === "idle" ? "border border-dashed border-line bg-transparent text-burgundy/70" : ""
               }`}
@@ -472,9 +505,9 @@ function EntrySteps({ reduce }) {
               {step.state === "active" && !reduce ? (
                 <motion.span
                   aria-hidden="true"
-                  className="absolute inset-0 rounded-full border border-burgundy"
-                  animate={{ scale: [1, 1.35], opacity: [0.45, 0] }}
-                  transition={{ duration: 1.6, repeat: Infinity, ease: "easeOut" }}
+                  className="absolute -inset-1 rounded-full border-2 border-burgundy"
+                  animate={{ opacity: [0.2, 1, 0.2] }}
+                  transition={{ duration: 1.1, repeat: Infinity, ease: "easeInOut" }}
                 />
               ) : null}
               <span className="relative z-10 flex">
@@ -483,7 +516,7 @@ function EntrySteps({ reduce }) {
                     <path d="M4.5 12.75l6 6 9-13.5" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
                 ) : null}
-                {step.state === "active" ? <Receipt className="size-4" strokeWidth={2} aria-label={step.label} /> : null}
+                {step.state === "active" ? <Keyboard className="size-4" strokeWidth={2} aria-label={step.label} /> : null}
                 {step.state === "idle" ? (
                   <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="2" aria-label={step.label}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
@@ -491,7 +524,7 @@ function EntrySteps({ reduce }) {
                 ) : null}
               </span>
             </div>
-            <span className={`text-[12px] ${step.state === "active" ? "font-bold text-burgundy-deep" : "font-medium text-burgundy/70"}`}>
+            <span className={`text-[12px] ${step.state === "active" ? "font-semibold text-foreground" : "font-medium text-foreground/70"}`}>
               {step.label}
             </span>
           </div>
@@ -640,6 +673,38 @@ function ChoiceDoor({ onTrack, onMenu, iconUrl = "", heroUrl = "" }) {
   );
 }
 
+function EntryDrift() {
+  const reduce = useSafeReducedMotion();
+  const controls = useAnimation();
+
+  useEffect(() => {
+    if (reduce) return undefined;
+    const play = () => {
+      if (document.hidden) {
+        controls.stop();
+        return;
+      }
+      controls.start({
+        y: [0, -12, 0],
+        transition: { duration: 9, repeat: Infinity, ease: "easeInOut" },
+      });
+    };
+    play();
+    document.addEventListener("visibilitychange", play);
+    return () => {
+      document.removeEventListener("visibilitychange", play);
+      controls.stop();
+    };
+  }, [controls, reduce]);
+
+  return (
+    <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
+      <motion.div animate={controls} className="absolute -top-16 -start-16 size-56 rounded-full bg-burgundy/10 blur-3xl" />
+      <motion.div animate={controls} className="absolute -end-10 bottom-16 size-64 rounded-full bg-burgundy/10 blur-3xl" />
+    </div>
+  );
+}
+
 function Screen({ children, align = "center", bare = false, theme, decor = false }) {
   if (bare) {
     return (
@@ -650,15 +715,10 @@ function Screen({ children, align = "center", bare = false, theme, decor = false
   }
 
   return (
-    <main style={theme} className={`relative flex min-h-dvh flex-col px-4 pb-[max(1rem,env(safe-area-inset-bottom))] [overflow-anchor:none] ${decor ? "bg-[var(--choice-canvas,#fdfaf1)]" : "bg-ivory sm:px-8 lg:px-12"} ${align === "start" ? "overflow-x-visible pt-[max(0.75rem,env(safe-area-inset-top))]" : "overflow-x-clip pt-[max(1.25rem,env(safe-area-inset-top))]"}`}>
-      {decor ? (
-        <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
-          <div className="absolute -top-16 -start-16 size-56 rounded-full bg-burgundy opacity-[0.12] blur-3xl" />
-          <div className="absolute -end-10 bottom-16 size-64 rounded-full bg-burgundy opacity-[0.08] blur-3xl" />
-        </div>
-      ) : null}
+    <main style={theme} className={`relative flex min-h-dvh flex-col px-4 [overflow-anchor:none] ${decor ? "bg-[var(--choice-canvas,var(--color-background))] pt-[max(0.5rem,env(safe-area-inset-top))] pb-[calc(env(safe-area-inset-bottom)+16px)]" : "bg-ivory pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-8 lg:px-12"} ${align === "start" ? "overflow-x-visible pt-[max(0.75rem,env(safe-area-inset-top))]" : decor ? "overflow-x-visible" : "overflow-x-clip pt-[max(1.25rem,env(safe-area-inset-top))]"}`}>
+      {decor ? <EntryDrift /> : null}
       <div className={`relative z-10 flex w-full flex-col self-center ${decor ? "max-w-sm flex-1" : `max-w-5xl ${align === "start" ? "" : "my-auto"}`}`}>{children}</div>
-      {align === "center" ? <PoweredBy className="relative z-10 text-[#5C4E32]" /> : null}
+      {align === "center" ? <PoweredBy className={`relative z-10 shrink-0 text-foreground/70 ${decor ? "mt-4" : ""}`} /> : null}
     </main>
   );
 }
