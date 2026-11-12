@@ -309,6 +309,7 @@ export function RestaurantEntry({ slug }) {
     return (
       <Screen bare theme={theme}>
         <ChoiceDoor
+          name={name}
           iconUrl={iconUrl}
           heroUrl={menuAssetSrc(menu.banners[0]?.imageUrl)}
           onTrack={() => setDoor("track")}
@@ -537,7 +538,7 @@ function EntrySteps({ reduce }) {
 const choiceCanvas = "var(--choice-canvas, #f6efe6)";
 const choiceLine = "var(--choice-line, #e4cf9a)";
 
-function ChoiceDoor({ onTrack, onMenu, iconUrl = "", heroUrl = "" }) {
+function ChoiceDoor({ name = "", onTrack, onMenu, iconUrl = "", heroUrl = "" }) {
   const reduce = useReducedMotion();
   const [mark, setMark] = useState(iconUrl);
   const [hero, setHero] = useState(heroUrl);
@@ -554,14 +555,14 @@ function ChoiceDoor({ onTrack, onMenu, iconUrl = "", heroUrl = "" }) {
       title: customerCopy.chooseTrack,
       onClick: onTrack,
       icon: (
-        <img src="/choice-track-mark.jpg" alt="" className="size-11 rounded-full object-cover" />
+        <img src="/choice-track-icon.png" alt="" className="size-11 object-contain" />
       ),
     },
     {
       title: customerCopy.chooseMenu,
       onClick: onMenu,
       icon: (
-        <img src="/choice-menu-mark.png" alt="" className="size-11 rounded-full object-cover" />
+        <img src="/choice-menu-icon.png" alt="" className="size-11 object-contain" />
       ),
     },
   ];
@@ -603,20 +604,22 @@ function ChoiceDoor({ onTrack, onMenu, iconUrl = "", heroUrl = "" }) {
           />
         </motion.span>
         <motion.h1
-          className="mt-5 text-center font-display text-[1.7rem] leading-snug font-bold text-burgundy-deep"
+          className="mt-5 max-w-full text-center font-display text-[1.85rem] leading-tight font-bold wrap-break-word text-burgundy-deep"
           initial={reduce ? false : { y: 14, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ duration: 0.45, delay: 0.22, ease: "easeOut" }}
         >
-          {customerCopy.chooseWelcome}
+          {name ? `${customerCopy.chooseWelcome} ${name}!` : "أهلاً بك!"}
         </motion.h1>
         <motion.p
-          className="mt-2 text-center text-sm text-burgundy/75"
+          className="mt-3 flex items-center justify-center gap-3 text-center font-detail text-[0.95rem] font-medium text-gold"
           initial={reduce ? false : { y: 10, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ duration: 0.4, delay: 0.32, ease: "easeOut" }}
         >
-          {customerCopy.choosePrompt}
+          <span className="h-px w-12 shrink-0 bg-gold" aria-hidden="true" />
+          <span>{customerCopy.choosePrompt}</span>
+          <span className="h-px w-12 shrink-0 bg-gold" aria-hidden="true" />
         </motion.p>
 
         <div className="mt-7 flex w-full flex-col gap-3.5">

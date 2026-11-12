@@ -136,6 +136,11 @@ export function RestaurantPanel({
 
   const activePlans = plans.filter((plan) => plan.is_active);
   const editing = restaurants.find((item) => item.id === editingId) || null;
+  const canResetColors = Boolean(
+    normalizeHex(form.primary_color) ||
+      normalizeHex(form.secondary_color) ||
+      (editing && (normalizeHex(editing.primary_color) || normalizeHex(editing.secondary_color))),
+  );
 
   function update(key, value) {
     setForm((current) => ({ ...current, [key]: value }));
@@ -152,6 +157,39 @@ export function RestaurantPanel({
     setForm(blankForm);
     clearIcon();
     setError("");
+  }
+
+  async function resetColors() {
+    const previous = {
+      primary_color: form.primary_color,
+      secondary_color: form.secondary_color,
+    };
+    setForm((current) => ({ ...current, primary_color: "", secondary_color: "" }));
+    setError("");
+    if (!editing) return;
+
+    const themeFields = themeFieldChanges(editing, {
+      name_en: editing.name_en || "",
+      primary_color: "",
+      secondary_color: "",
+    });
+    if (themeFields.error) {
+      setForm((current) => ({ ...current, ...previous }));
+      setError(themeFields.error);
+      return;
+    }
+
+    const body = {};
+    if (Object.prototype.hasOwnProperty.call(themeFields.body, "primary_color")) {
+      body.primary_color = themeFields.body.primary_color;
+    }
+    if (Object.prototype.hasOwnProperty.call(themeFields.body, "secondary_color")) {
+      body.secondary_color = themeFields.body.secondary_color;
+    }
+    if (Object.keys(body).length === 0) return;
+
+    const ok = await onUpdate(editing.id, body, setError);
+    if (!ok) setForm((current) => ({ ...current, ...previous }));
   }
 
   function startEdit(restaurant) {
@@ -441,6 +479,9 @@ export function RestaurantPanel({
             onChange={(value) => update("secondary_color", value)}
           />
           <ThemePreview primary={form.primary_color} secondary={form.secondary_color} />
+          <ActionButton variant="quiet" onClick={resetColors} disabled={busy || !canResetColors} className="w-full">
+            إرجاع ألوان ناديني
+          </ActionButton>
           <p className="text-sm leading-6 text-ink/55">
             الاسم الإنجليزي والألوان اختيارية. عند التعديل، الحقل الفارغ يمسح القيمة. اللون الفارغ يبقي لون ناديني.
           </p>
