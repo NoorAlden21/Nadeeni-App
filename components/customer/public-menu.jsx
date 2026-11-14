@@ -6,9 +6,8 @@ import { menuAssetSrc } from "@/lib/api/client";
 // import { RestaurantContact } from "@/components/customer/restaurant-contact";
 import { customerCopy } from "@/lib/customer/public";
 import { restaurantTitle } from "@/lib/theme/restaurant-theme";
-import { categoryIndexAtMarker } from "@/lib/customer/public-menu";
 import { formatPrice } from "@/lib/menu/menu";
-import { Funnel } from "@phosphor-icons/react";
+// import { Funnel } from "@phosphor-icons/react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 function useAsset(src) {
@@ -56,14 +55,14 @@ function BackIcon({ className = "" }) {
   );
 }
 
-function SearchIcon() {
-  return (
-    <svg viewBox="0 0 24 24" className="pointer-events-none absolute top-1/2 start-4 size-[1.15rem] -translate-y-1/2 text-ink/35" fill="none" aria-hidden="true" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="11" cy="11" r="6.5" />
-      <path d="m16 16 4 4" />
-    </svg>
-  );
-}
+// function SearchIcon() {
+//   return (
+//     <svg viewBox="0 0 24 24" className="pointer-events-none absolute top-1/2 start-4 size-[1.15rem] -translate-y-1/2 text-ink/35" fill="none" aria-hidden="true" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+//       <circle cx="11" cy="11" r="6.5" />
+//       <path d="m16 16 4 4" />
+//     </svg>
+//   );
+// }
 
 function GridIcon() {
   return (
@@ -105,7 +104,9 @@ function BannerPhoto({ src }) {
 }
 
 function BannerHero({ banners }) {
+  const reduceMotion = useReducedMotion();
   const [index, setIndex] = useState(0);
+  const [zoomed, setZoomed] = useState(false);
   const signature = banners.map((banner) => banner.imageUrl).join("|");
   const current = banners[index] || banners[0];
 
@@ -113,13 +114,26 @@ function BannerHero({ banners }) {
     setIndex(0);
   }, [signature]);
 
+  useEffect(() => {
+    if (reduceMotion !== false) return undefined;
+    const frame = window.requestAnimationFrame(() => setZoomed(true));
+    return () => window.cancelAnimationFrame(frame);
+  }, [reduceMotion]);
+
   if (!current) {
     return null;
   }
 
   return (
-    <div className="relative mt-4 -mx-4 overflow-hidden sm:-mx-8 lg:-mx-12">
-      <BannerPhoto key={current.imageUrl} src={current.imageUrl} />
+    <div className="relative mt-4 overflow-hidden rounded-[18px] shadow-[0_10px_30px_rgba(42,16,22,0.12)] sm:rounded-[24px]">
+      <motion.div
+        className="origin-center"
+        initial={{ scale: 1 }}
+        animate={{ scale: zoomed ? 1.04 : 1 }}
+        transition={{ duration: 6, ease: [0.25, 0.1, 0.25, 1] }}
+      >
+        <BannerPhoto key={current.imageUrl} src={current.imageUrl} />
+      </motion.div>
       {banners.length > 1 ? (
         <div className="absolute inset-x-0 bottom-3 z-20 flex justify-center gap-1.5">
           {banners.map((banner, slideIndex) => (
@@ -465,23 +479,39 @@ function LayoutSwitch({ layout, onChange, lang }) {
   );
 }
 
-function pillClass(selected) {
-  return `shrink-0 cursor-pointer whitespace-nowrap rounded-full border px-4 py-2 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold ${
-    selected
-      ? "border-burgundy bg-burgundy text-on-primary shadow-[0_8px_18px_-12px_rgba(74,4,24,0.85)]"
-      : "border-black/10 bg-white text-ink/70"
+function CategoryIcon({ src, label, selected }) {
+  const asset = useAsset(src);
+  const shell = `grid size-10 shrink-0 place-items-center overflow-hidden rounded-full ${
+    selected ? "bg-white shadow-[0_2px_6px_rgba(42,16,22,0.12)]" : "bg-soft"
   }`;
+  if (asset.visible) {
+    return (
+      <span className={shell}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={asset.resolved} alt="" loading="lazy" onError={asset.fail} className="size-full object-contain p-1" />
+      </span>
+    );
+  }
+
+  const mark = [...String(label || "•")][0] || "•";
+  return (
+    <span aria-hidden="true" className={`${shell} font-detail text-sm font-bold text-burgundy`}>
+      {mark}
+    </span>
+  );
 }
 
 function CategoryStrip({ categories, active, onChoose, stripRef, lang }) {
   return (
     <nav
       ref={stripRef}
-      aria-label={phrase("menuHeading", lang)}
-      className="flex min-w-0 gap-2 overflow-x-auto scroll-smooth py-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      aria-label={phrase("menuCategories", lang)}
+      style={{ top: "var(--menu-sticky, 4.75rem)" }}
+      className="sticky z-20 -mx-4 flex min-w-0 gap-2.5 overflow-x-auto scroll-smooth bg-ivory/95 px-4 py-1.5 snap-x snap-proximity backdrop-blur-md [scrollbar-width:none] sm:-mx-8 sm:px-8 lg:-mx-12 lg:px-12 [&::-webkit-scrollbar]:hidden"
     >
       {categories.map((item) => {
         const isSelected = item.sourceIndex === active;
+        const label = localized(item.name, lang);
         return (
           <button
             key={`${item.name.ar}-${item.sourceIndex}`}
@@ -489,9 +519,14 @@ function CategoryStrip({ categories, active, onChoose, stripRef, lang }) {
             data-category-index={item.sourceIndex}
             aria-current={isSelected ? "true" : undefined}
             onClick={() => onChoose(item.sourceIndex)}
-            className={pillClass(isSelected)}
+            className={`flex w-[calc((100%-1.25rem)/2.35)] max-w-[11.75rem] min-w-0 shrink-0 cursor-pointer snap-start items-center gap-2 overflow-hidden rounded-2xl border py-1.5 ps-1.5 pe-2.5 text-[14px] font-bold transition duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold ${
+              isSelected
+                ? "origin-center scale-[1.02] border-burgundy bg-burgundy text-on-primary shadow-[0_4px_14px_color-mix(in_srgb,var(--color-burgundy)_34%,transparent)] motion-reduce:scale-100"
+                : "border-black/10 bg-white text-ink shadow-[0_1px_3px_rgba(42,16,22,0.06)]"
+            }`}
           >
-            {localized(item.name, lang)}
+            <CategoryIcon src={item.iconUrl} label={label} selected={isSelected} />
+            <span className="min-w-0 truncate">{label}</span>
           </button>
         );
       })}
@@ -519,49 +554,52 @@ function MenuItemCard({ item, layout, onOpen, lang, index = 0 }) {
         <motion.button
           type="button"
           onClick={() => onOpen(item)}
-          dir={lang === "en" ? "ltr" : "rtl"}
           {...motionProps}
-          className="flex w-full cursor-pointer items-center gap-3 rounded-2xl bg-white px-3 py-3 text-start shadow-[0_10px_30px_rgba(42,16,22,0.08)] ring-1 ring-black/[0.04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold sm:hidden"
+          className="flex h-full w-full cursor-pointer flex-col overflow-hidden rounded-[1.25rem] border border-black/[0.06] bg-white text-start shadow-[0_4px_16px_rgba(42,16,22,0.06)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
         >
-          <span dir={lang === "en" ? "ltr" : "rtl"} className="flex min-w-0 flex-1 flex-col items-start gap-1.5">
-            <span className="line-clamp-2 font-detail text-lg leading-tight font-bold text-burgundy">{itemName}</span>
-            {description ? (
-              <span className="line-clamp-2 text-sm leading-snug text-ink/50">{description}</span>
-            ) : null}
-            {price ? (
-              <span dir="ltr" translate="no" className="text-sm font-semibold text-ink/70">
-                {phrase("currency", lang)} {price}
-              </span>
-            ) : null}
-          </span>
-          <span className="relative size-24 shrink-0 overflow-hidden rounded-2xl">
-            <RoundPhoto src={item.photoUrl} label={itemName} className="size-full text-2xl" />
+          <span className="relative block bg-soft">
+            <RoundPhoto src={item.photoUrl} label={itemName} className="aspect-[4/3] w-full text-5xl" />
             <ItemBadge badge={item.badge} lang={lang} />
           </span>
-        </motion.button>
-      ) : null}
-      <motion.button
-        type="button"
-        onClick={() => onOpen(item)}
-        {...motionProps}
-        className={`${layout === "list" ? "hidden sm:flex" : "flex"} h-full w-full cursor-pointer flex-col rounded-[1.35rem] bg-white p-2 text-start shadow-[0_14px_32px_-20px_rgba(42,16,22,0.4)] ring-1 ring-black/[0.04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold`}
-      >
-        <span className="relative block overflow-hidden rounded-[1.05rem]">
-          <RoundPhoto src={item.photoUrl} label={localized(item.name, lang)} className="aspect-[5/4] w-full text-3xl" />
-          <ItemBadge badge={item.badge} lang={lang} />
-        </span>
-        <span className="flex flex-1 flex-col items-center px-1.5 pt-3 pb-1.5 text-center">
-          <span className="line-clamp-2 w-full text-center font-detail text-[15px] leading-6 font-semibold text-ink">{localized(item.name, lang)}</span>
-          {price ? (
-            <span className="mt-3 flex w-full items-baseline justify-center gap-1.5 border-t border-black/[0.06] pt-2">
-              <span dir="ltr" translate="no" className="font-detail text-sm font-bold text-burgundy">
-                {price}
-              </span>
-              <span className="text-[11px] font-semibold text-ink/45">{phrase("currency", lang)}</span>
+          <span className="flex flex-1 flex-col gap-2.5 px-[1.125rem] pt-4 pb-[1.125rem]">
+            <span className="flex items-start justify-between gap-3">
+              <span className="line-clamp-2 min-w-0 flex-1 font-detail text-[18px] leading-[1.45] font-extrabold text-ink">{itemName}</span>
+              {price ? (
+                <span dir="ltr" translate="no" className="shrink-0 pt-0.5 font-detail text-[19px] leading-none font-extrabold whitespace-nowrap text-burgundy">
+                  {price}
+                  <span className="ms-1 text-[15px] font-bold">{phrase("currency", lang)}</span>
+                </span>
+              ) : null}
             </span>
-          ) : null}
-        </span>
-      </motion.button>
+            {description ? (
+              <span className="line-clamp-3 text-[13.5px] leading-[1.7] whitespace-pre-line text-ink/55">{description}</span>
+            ) : null}
+          </span>
+        </motion.button>
+      ) : (
+        <motion.button
+          type="button"
+          onClick={() => onOpen(item)}
+          {...motionProps}
+          className="flex h-full w-full cursor-pointer flex-col rounded-[1.35rem] bg-white p-2 text-start shadow-[0_14px_32px_-20px_rgba(42,16,22,0.4)] ring-1 ring-black/[0.04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
+        >
+          <span className="relative block overflow-hidden rounded-[1.05rem]">
+            <RoundPhoto src={item.photoUrl} label={localized(item.name, lang)} className="aspect-[5/4] w-full text-3xl" />
+            <ItemBadge badge={item.badge} lang={lang} />
+          </span>
+          <span className="flex flex-1 flex-col items-center px-1.5 pt-3 pb-1.5 text-center">
+            <span className="line-clamp-2 w-full text-center font-detail text-[15px] leading-6 font-semibold text-ink">{localized(item.name, lang)}</span>
+            {price ? (
+              <span className="mt-3 flex w-full items-baseline justify-center gap-1.5 border-t border-black/[0.06] pt-2">
+                <span dir="ltr" translate="no" className="font-detail text-sm font-bold text-burgundy">
+                  {price}
+                </span>
+                <span className="text-[11px] font-semibold text-ink/45">{phrase("currency", lang)}</span>
+              </span>
+            ) : null}
+          </span>
+        </motion.button>
+      )}
     </li>
   );
 }
@@ -581,19 +619,18 @@ export function PublicMenu({ name, nameEn = "", iconUrl, contact = null, banners
   const visible = visibleCategories(boarded, query);
   const cards = menuCards(visible);
   const shown = visible.some((item) => item.sourceIndex === active) ? active : (visible[0]?.sourceIndex ?? active);
+  const currentGroup = visible.find((group) => group.sourceIndex === shown) ?? visible[0];
+  const currentCards = currentGroup ? cards.filter((item) => item.sourceIndex === currentGroup.sourceIndex) : [];
   const menuRef = useRef(null);
   const barRef = useRef(null);
-  const categoryBarRef = useRef(null);
   const stripRef = useRef(null);
   const sheetRef = useRef(null);
-  const pauseSpy = useRef(false);
-  const pauseToken = useRef(0);
-  const readSpy = useRef(() => {});
+  const scrollCategory = useRef(false);
   const title = boardTitle(board, lang);
   const sectionKey = visible.map((item) => `${item.sourceIndex}:${item.items.length}`).join("|");
   const itemGridClass =
     layout === "list"
-      ? "flex flex-col gap-3 sm:grid sm:grid-cols-3 sm:gap-3 lg:grid-cols-4"
+      ? "grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 lg:gap-6"
       : "grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4";
 
   useEffect(() => {
@@ -606,54 +643,24 @@ export function PublicMenu({ name, nameEn = "", iconUrl, contact = null, banners
     if (!bar || !root) return undefined;
     const apply = () => {
       const header = bar.offsetHeight;
-      const chips = categoryBarRef.current?.offsetHeight ?? 0;
+      const chips = stripRef.current?.offsetHeight ?? 0;
       root.style.setProperty("--menu-sticky", `${header}px`);
       root.style.setProperty("--menu-anchor", `${header + chips}px`);
     };
     apply();
     const observer = new ResizeObserver(apply);
     observer.observe(bar);
-    if (categoryBarRef.current) observer.observe(categoryBarRef.current);
+    if (stripRef.current) observer.observe(stripRef.current);
     return () => observer.disconnect();
   }, [sectionKey, loading, visible.length, banners.length]);
 
   useEffect(() => {
-    const root = sheetRef.current;
-    if (!root || visible.length === 0) return undefined;
-
-    let frame = 0;
-    function read() {
-      if (pauseSpy.current) return;
-      const headerBottom = barRef.current?.getBoundingClientRect().bottom ?? 0;
-      const chips = categoryBarRef.current?.getBoundingClientRect();
-      const chipsStuck = chips && chips.top <= headerBottom + 1;
-      const marker = (chipsStuck ? chips.bottom : headerBottom) + 24;
-      const sections = [...root.querySelectorAll("[data-menu-section]")].map((node) => {
-        const rect = node.getBoundingClientRect();
-        return { index: Number(node.dataset.menuSection), top: rect.top, bottom: rect.bottom };
-      });
-      const atEnd = window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 2;
-      const next = categoryIndexAtMarker(sections, { marker, viewportHeight: window.innerHeight, atEnd });
-      if (next === null || Number.isNaN(next)) return;
-      setActive((current) => (current === next ? current : next));
-    }
-
-    readSpy.current = read;
-
-    function onScroll() {
-      window.cancelAnimationFrame(frame);
-      frame = window.requestAnimationFrame(read);
-    }
-
-    frame = window.requestAnimationFrame(read);
-    window.addEventListener("scroll", onScroll, { passive: true });
-    window.addEventListener("resize", onScroll);
-    return () => {
-      window.cancelAnimationFrame(frame);
-      window.removeEventListener("scroll", onScroll);
-      window.removeEventListener("resize", onScroll);
-    };
-  }, [sectionKey, visible.length]);
+    if (!scrollCategory.current) return;
+    scrollCategory.current = false;
+    const section = sheetRef.current?.querySelector(`[data-menu-section="${shown}"]`);
+    if (!section) return;
+    section.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "start" });
+  }, [shown, reduceMotion]);
 
   useEffect(() => {
     const strip = stripRef.current;
@@ -665,7 +672,8 @@ export function PublicMenu({ name, nameEn = "", iconUrl, contact = null, banners
       const chipBox = chip.getBoundingClientRect();
       const fullyVisible = chipBox.left >= stripBox.left + 8 && chipBox.right <= stripBox.right - 8;
       if (fullyVisible) return;
-      const delta = chipBox.left + chipBox.width / 2 - (stripBox.left + stripBox.width / 2);
+      const rtl = getComputedStyle(strip).direction === "rtl";
+      const delta = rtl ? chipBox.right - (stripBox.right - 4) : chipBox.left - (stripBox.left + 4);
       strip.scrollBy({ left: delta, behavior: reduceMotion ? "auto" : "smooth" });
     });
     return () => window.cancelAnimationFrame(frame);
@@ -677,36 +685,10 @@ export function PublicMenu({ name, nameEn = "", iconUrl, contact = null, banners
     onBack();
   }
 
-  function revealCategory(itemIndex) {
-    const section = sheetRef.current?.querySelector(`[data-menu-section="${itemIndex}"]`);
-    if (!section) {
-      pauseSpy.current = false;
-      return;
-    }
-    const token = pauseToken.current + 1;
-    pauseToken.current = token;
-    pauseSpy.current = true;
-    section.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "start" });
-    const follow = () => stop(true);
-    function stop(sync) {
-      window.removeEventListener("scrollend", stop);
-      window.removeEventListener("wheel", follow);
-      window.removeEventListener("touchmove", follow);
-      if (pauseToken.current !== token) return;
-      pauseSpy.current = false;
-      if (sync) readSpy.current();
-    }
-    window.addEventListener("scrollend", stop);
-    window.addEventListener("wheel", follow, { passive: true });
-    window.addEventListener("touchmove", follow, { passive: true });
-    window.setTimeout(stop, reduceMotion ? 80 : 900);
-  }
-
   function chooseCategory(itemIndex) {
+    scrollCategory.current = true;
     setActive(itemIndex);
     setFiltersOpen(false);
-    pauseSpy.current = true;
-    window.setTimeout(() => revealCategory(itemIndex), 40);
   }
 
   function chooseBoard(next) {
@@ -714,11 +696,7 @@ export function PublicMenu({ name, nameEn = "", iconUrl, contact = null, banners
     setBoard(next);
     setActive(nextVisible[0]?.sourceIndex ?? 0);
     setPickerOpen(false);
-    pauseSpy.current = true;
     window.scrollTo(0, 0);
-    window.setTimeout(() => {
-      pauseSpy.current = false;
-    }, 80);
   }
 
   const showStrip = visible.length > 0;
@@ -770,7 +748,7 @@ export function PublicMenu({ name, nameEn = "", iconUrl, contact = null, banners
           {/* <RestaurantContact contact={contact} icons /> */}
         </div>
 
-        {!loading && categories.length > 0 ? (
+        {/* {!loading && categories.length > 0 ? (
           <div className="flex items-center gap-2 pb-3">
             <div className="relative min-w-0 flex-1">
               <SearchIcon />
@@ -800,7 +778,7 @@ export function PublicMenu({ name, nameEn = "", iconUrl, contact = null, banners
               <Funnel size={20} weight="regular" />
             </button>
           </div>
-        ) : null}
+        ) : null} */}
       </div>
 
       {banners.length > 0 ? (
@@ -808,12 +786,12 @@ export function PublicMenu({ name, nameEn = "", iconUrl, contact = null, banners
       ) : null}
 
       {!loading && showStrip ? (
-        <div
-          ref={categoryBarRef}
-          className="sticky z-20 -mx-4 bg-ivory/95 px-4 py-2 backdrop-blur-md sm:-mx-8 sm:px-8 lg:-mx-12 lg:px-12"
-          style={{ top: "var(--menu-sticky, 4.75rem)" }}
-        >
-          <div className="flex min-w-0 items-center">
+        <div className="pt-1">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-2">
+              <span aria-hidden="true" className="h-[1.625rem] w-[7px] shrink-0 rounded-full bg-burgundy" />
+              <p className="truncate text-[1.2rem] leading-none font-extrabold text-ink sm:text-[1.35rem]">{phrase("menuCategories", lang)}</p>
+            </div>
             <button
               type="button"
               aria-label={phrase("menuPick", lang)}
@@ -823,15 +801,16 @@ export function PublicMenu({ name, nameEn = "", iconUrl, contact = null, banners
                 setFiltersOpen(false);
                 setPickerOpen(true);
               }}
-              className="me-2 inline-flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-full border border-black/10 bg-white text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
+              className="inline-flex size-10 shrink-0 cursor-pointer items-center justify-center rounded-full border border-black/10 bg-white text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
             >
               <BarsIcon />
             </button>
-            <div className="min-w-0 flex-1">
-              <CategoryStrip categories={visible} active={shown} onChoose={chooseCategory} stripRef={stripRef} lang={lang} />
-            </div>
           </div>
         </div>
+      ) : null}
+
+      {!loading && showStrip ? (
+        <CategoryStrip categories={visible} active={shown} onChoose={chooseCategory} stripRef={stripRef} lang={lang} />
       ) : null}
 
       {loading ? (
@@ -841,35 +820,30 @@ export function PublicMenu({ name, nameEn = "", iconUrl, contact = null, banners
           {board !== "main" ? (
             <h2 className="mb-4 font-detail text-[1.35rem] leading-8 font-bold text-ink">{title}</h2>
           ) : null}
-          <div className="flex flex-col gap-8">
-            {visible.map((group, groupIndex) => (
-              <section
-                key={`${board}-${group.sourceIndex}`}
-                data-menu-section={group.sourceIndex}
-                aria-labelledby={`menu-category-${group.sourceIndex}`}
-                className="scroll-mt-[calc(var(--menu-anchor,var(--menu-sticky,9rem))+0.75rem)]"
+          {currentGroup ? (
+            <section
+              data-menu-section={currentGroup.sourceIndex}
+              aria-labelledby={`menu-category-${currentGroup.sourceIndex}`}
+              className="scroll-mt-[calc(var(--menu-anchor,var(--menu-sticky,9rem))+0.75rem)]"
+            >
+              <motion.div
+                className="mb-3.5 flex items-center justify-between gap-3"
+                initial={reduceMotion ? false : { y: 10, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ duration: 0.35, ease: "easeOut" }}
               >
-                <motion.div
-                  className="mb-3.5 flex items-center justify-between gap-3"
-                  initial={reduceMotion ? false : { y: 10, opacity: 0 }}
-                  animate={{ y: 0, opacity: 1 }}
-                  transition={{ duration: 0.35, delay: groupIndex * 0.05, ease: "easeOut" }}
-                >
-                  <h2 id={`menu-category-${group.sourceIndex}`} className="min-w-0 truncate font-detail text-[1.35rem] leading-8 font-bold text-ink">
-                    {localized(group.name, lang)}
-                  </h2>
-                  {groupIndex === 0 ? <LayoutSwitch layout={layout} onChange={setLayout} lang={lang} /> : null}
-                </motion.div>
-                <ul className={itemGridClass}>
-                  {cards
-                    .filter((item) => item.sourceIndex === group.sourceIndex)
-                    .map((item, itemIndex) => (
-                      <MenuItemCard key={item.key} item={item} layout={layout} onOpen={setDetail} lang={lang} index={itemIndex} />
-                    ))}
-                </ul>
-              </section>
-            ))}
-          </div>
+                <h2 id={`menu-category-${currentGroup.sourceIndex}`} className="min-w-0 truncate font-detail text-[1.35rem] leading-8 font-bold text-ink">
+                  {localized(currentGroup.name, lang)}
+                </h2>
+                <LayoutSwitch layout={layout} onChange={setLayout} lang={lang} />
+              </motion.div>
+              <ul className={itemGridClass}>
+                {currentCards.map((item, itemIndex) => (
+                  <MenuItemCard key={item.key} item={item} layout={layout} onOpen={setDetail} lang={lang} index={itemIndex} />
+                ))}
+              </ul>
+            </section>
+          ) : null}
         </div>
       ) : (
         <section className="mt-6">
