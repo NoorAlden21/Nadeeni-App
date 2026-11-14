@@ -7,7 +7,7 @@ import { apiFetch } from "@/lib/api/client";
 import { CancelDialog } from "@/components/cashier/cancel-dialog";
 import { OrderComposer } from "@/components/cashier/order-composer";
 import { LoyaltyRedeem } from "@/components/cashier/loyalty-redeem";
-import { OrderLane } from "@/components/cashier/order-lane";
+import { OrderLane, PreparingStrip } from "@/components/cashier/order-lane";
 import { QrDialog } from "@/components/cashier/qr-dialog";
 import { UncollectDialog } from "@/components/cashier/uncollect-dialog";
 import { RestaurantMenu } from "@/components/menu/restaurant-menu";
@@ -45,8 +45,10 @@ export function CashierDashboard({ token, user, onUnauthenticated, onInactive })
   const [listError, setListError] = useState("");
   const [loaded, setLoaded] = useState(false);
   const [adding, setAdding] = useState(false);
-  const [now, setNow] = useState(null);
   const [cancelTarget, setCancelTarget] = useState(null);
+  const [undoToasts, setUndoToasts] = useState([]);
+  const [resendLocks, setResendLocks] = useState({});
+  const [collectingId, setCollectingId] = useState(null);
   const [canceling, setCanceling] = useState(false);
   const [uncollectTarget, setUncollectTarget] = useState(null);
   const [uncollecting, setUncollecting] = useState(false);
@@ -73,6 +75,9 @@ export function CashierDashboard({ token, user, onUnauthenticated, onInactive })
   const visible = screens.some((item) => item.id === screen) ? screen : screens[0]?.id || "none";
   const showNav = screens.length > 1;
   const sectionTitle = screens.find((item) => item.id === visible)?.label || "لوحة الكاشير";
+  const ordersView = visible !== "none" && visible !== "menu" && visible !== "loyalty";
+  const hiddenCollects = useRef(new Map());
+  const resendToken = useRef(0);
 
   useEffect(() => {
     if (!navOpen) {
@@ -100,37 +105,18 @@ export function CashierDashboard({ token, user, onUnauthenticated, onInactive })
   }, [onUnauthenticated, onInactive]);
 
   useEffect(() => {
-    let timer = 0;
-
-    function refresh() {
-      setNow(Date.now());
-    }
-
-    function schedule() {
-      window.clearTimeout(timer);
-      timer = window.setTimeout(() => {
-        if (document.visibilityState === "visible") {
-          refresh();
-        }
-        schedule();
-      }, 30000);
-    }
-
-    function onVisibilityChange() {
-      if (document.visibilityState === "visible") {
-        refresh();
+    function flush() {
+      for (const [id, entry] of hiddenCollects.current) {
+        if (entry.committed) continue;
+        entry.committed = true;
+        window.clearTimeout(entry.timer);
+        apiFetch(`/orders/${encodeURIComponent(id)}/collect`, { token, method: "POST" }).catch(() => {});
       }
     }
 
-    refresh();
-    schedule();
-    document.addEventListener("visibilitychange", onVisibilityChange);
-
-    return () => {
-      window.clearTimeout(timer);
-      document.removeEventListener("visibilitychange", onVisibilityChange);
-    };
-  }, []);
+    window.addEventListener("pagehide", flush);
+    return () => window.removeEventListener("pagehide", flush);
+  }, [token]);
 
   useEffect(() => {
     if (!pager) {
@@ -149,7 +135,7 @@ export function CashierDashboard({ token, user, onUnauthenticated, onInactive })
         if (stopped) {
           return;
         }
-        setOrders(Array.isArray(list) ? list : []);
+        setOrders((Array.isArray(list) ? list : []).filter((order) => !hiddenCollects.current.has(order.id)));
         setDelivered(Array.isArray(collected) ? collected.length : 0);
         setListError("");
         setLoaded(true);
@@ -375,16 +361,78 @@ export function CashierDashboard({ token, user, onUnauthenticated, onInactive })
     });
   }
 
-  function handleDeliver(id) {
-    runOrderAction(id, "/collect", () => {
-      setDelivered((count) => count + 1);
-      setMessage(null);
+  function dropUndoToast(id) {
+    setUndoToasts((current) => current.filter((item) => item.id !== id));
+  }
+
+  function restoreCollect(id) {
+    const entry = hiddenCollects.current.get(id);
+    if (!entry) return;
+    window.clearTimeout(entry.timer);
+    hiddenCollects.current.delete(id);
+    setOrders((current) => mergeOrder(current, entry.order));
+    dropUndoToast(id);
+  }
+
+  function commitCollect(id) {
+    const entry = hiddenCollects.current.get(id);
+    if (!entry || entry.committed) return;
+    entry.committed = true;
+    window.clearTimeout(entry.timer);
+    dropUndoToast(id);
+    setCollectingId(id);
+    runOrderAction(
+      id,
+      "/collect",
+      () => {
+        hiddenCollects.current.delete(id);
+        setDelivered((count) => count + 1);
+        setMessage(null);
+      },
+      () => {
+        entry.committed = false;
+        restoreCollect(id);
+      },
+    ).finally(() => {
+      setCollectingId((current) => (current === id ? null : current));
     });
   }
 
+  function handleDeliver(id) {
+    if (hiddenCollects.current.has(id) || collectingId === id) return;
+    const order = orders.find((item) => item.id === id);
+    if (!order) return;
+    const entry = {
+      order,
+      committed: false,
+      timer: window.setTimeout(() => commitCollect(id), 5000),
+    };
+    hiddenCollects.current.set(id, entry);
+    setOrders((current) => current.filter((item) => item.id !== id));
+    setUndoToasts((current) => [...current.filter((item) => item.id !== id), { id, number: order.order_number }]);
+  }
+
+  function undoDeliver(id) {
+    const entry = hiddenCollects.current.get(id);
+    if (!entry || entry.committed) return;
+    restoreCollect(id);
+  }
+
   function handleResend(id) {
+    if (resendLocks[id]) return;
     setResendingId(id);
     setResendNote(null);
+    resendToken.current += 1;
+    const token = resendToken.current;
+    setResendLocks((current) => ({ ...current, [id]: token }));
+    window.setTimeout(() => {
+      setResendLocks((current) => {
+        if (current[id] !== token) return current;
+        const next = { ...current };
+        delete next[id];
+        return next;
+      });
+    }, 8000);
     runOrderAction(
       id,
       "/resend",
@@ -499,20 +547,20 @@ export function CashierDashboard({ token, user, onUnauthenticated, onInactive })
   }
 
   return (
-    <div style={theme} className="min-h-dvh overflow-x-clip bg-ivory">
+    <div style={theme} className="min-h-dvh bg-ivory">
+      {navOpen ? (
+        <button
+          type="button"
+          aria-label="إغلاق الأقسام"
+          className="fixed inset-0 z-30 bg-burgundy-deep/40 md:hidden"
+          onClick={() => setNavOpen(false)}
+        />
+      ) : null}
+      <div className="flex min-h-dvh items-start">
       {showNav ? (
-        <>
-          {navOpen ? (
-            <button
-              type="button"
-              aria-label="إغلاق الأقسام"
-              className="fixed inset-0 z-30 bg-burgundy-deep/40 md:hidden"
-              onClick={() => setNavOpen(false)}
-            />
-          ) : null}
           <aside
             id="cashier-nav"
-            className={`${navOpen ? "flex" : "hidden md:flex"} fixed inset-y-0 start-0 z-40 w-64 flex-col border-e border-burgundy/10 bg-paper pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] font-detail`}
+            className={`${navOpen ? "fixed inset-y-0 start-0 z-40 flex" : "hidden"} h-dvh w-64 shrink-0 flex-col border-e border-burgundy/10 bg-paper pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] font-detail md:sticky md:top-0 md:z-30 md:flex`}
           >
             <div className="flex items-center gap-3 border-b border-burgundy/10 px-4 py-4">
               <BrandMark className="h-11 w-11" />
@@ -545,11 +593,11 @@ export function CashierDashboard({ token, user, onUnauthenticated, onInactive })
               </button>
             </div>
           </aside>
-        </>
       ) : null}
 
-      <div className={showNav ? "md:ps-64" : ""}>
-      <header className="sticky top-0 z-20 border-b border-burgundy/10 bg-ivory pt-[env(safe-area-inset-top)]">
+      <div className="min-w-0 flex-1">
+      <div className="border-b border-burgundy/10 bg-background">
+      <header className="border-b border-burgundy/10 bg-background pt-[env(safe-area-inset-top)]">
         <div className="mx-auto flex min-h-16 w-full max-w-7xl items-center gap-3 px-3 py-2 sm:min-h-[4.75rem] sm:px-6">
           {showNav ? (
             <button
@@ -586,8 +634,50 @@ export function CashierDashboard({ token, user, onUnauthenticated, onInactive })
           </div>
         </div>
       </header>
+      {ordersView ? (
+        <div className="mx-auto flex w-full max-w-7xl flex-col gap-3 px-3 py-3 sm:px-6">
+          <section aria-label="ملخص الطلبات" className="grid grid-cols-3 gap-2 sm:gap-3">
+            {[
+              { label: "قيد التحضير", value: waiting.length, icon: Clock3, ground: "bg-foam", mark: "bg-[#efd4dc] text-burgundy" },
+              { label: "جاهزة للاستلام", value: ready.length, icon: Bell, ground: "bg-gold/20", mark: "bg-gold/25 text-gold-deep", live: true },
+              { label: "تم تسليمها", value: delivered, icon: CircleCheck, ground: "bg-ivory", mark: "bg-[#e7f6ee] text-[#1f7a4d]" },
+            ].map((item) => (
+              <article
+                key={item.label}
+                className={`flex items-center gap-2.5 rounded-2xl px-3 py-3 shadow-[0_16px_40px_-28px_rgba(74,4,24,0.35)] ring-1 ring-burgundy/10 sm:gap-3 sm:px-4 ${item.ground} ${item.live && loaded && item.value > 0 ? "ring-2 ring-gold" : ""}`}
+              >
+                <span className={`grid size-9 shrink-0 place-items-center rounded-full ${item.mark}`}>
+                  <item.icon className="size-4" aria-hidden="true" />
+                </span>
+                <div className="min-w-0">
+                  <p className="font-sans text-3xl leading-none font-bold text-burgundy-deep tabular-nums" dir="ltr">
+                    {loaded ? item.value : "–"}
+                  </p>
+                  <p className="mt-1 font-detail text-sm leading-5 font-semibold text-burgundy-deep">{item.label}</p>
+                </div>
+              </article>
+            ))}
+          </section>
+          <OrderComposer
+            draft={draft}
+            message={message}
+            busy={adding}
+            onDraftChange={handleDraftChange}
+            onSubmit={handleAdd}
+          />
+          {!loaded ? (
+            <p className="text-sm font-medium text-ink/50">{cashierCopy.loadingOrders}</p>
+          ) : null}
+          {listError ? (
+            <p role="alert" className="text-sm font-medium text-burgundy">
+              {listError}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+      </div>
 
-      <main className="mx-auto flex w-full max-w-7xl flex-col gap-4 px-3 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:gap-6 sm:px-6 sm:pt-8 sm:pb-8">
+      <main className={`mx-auto flex w-full max-w-7xl flex-col px-3 sm:px-6 ${ordersView ? "gap-3 py-3 pb-[max(1rem,env(safe-area-inset-bottom))]" : "gap-4 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:gap-6 sm:pt-8 sm:pb-8"}`}>
         {visible === "none" ? (
           <p className="text-base font-medium text-burgundy-deep">{cashierCopy.featureUnavailable}</p>
         ) : visible === "menu" ? (
@@ -606,53 +696,12 @@ export function CashierDashboard({ token, user, onUnauthenticated, onInactive })
           />
         ) : (
           <>
-        <section aria-label="ملخص الطلبات" className="grid grid-cols-3 gap-2 sm:gap-3">
-          {[
-            { label: "قيد التحضير", value: waiting.length, icon: Clock3, ground: "bg-foam", mark: "bg-[#efd4dc] text-burgundy" },
-            { label: "جاهزة للاستلام", value: ready.length, icon: Bell, ground: "bg-gold/20", mark: "bg-gold/25 text-gold-deep", live: true },
-            { label: "تم تسليمها", value: delivered, icon: CircleCheck, ground: "bg-ivory", mark: "bg-[#e7f6ee] text-[#1f7a4d]" },
-          ].map((item) => (
-            <article
-              key={item.label}
-              className={`flex items-center gap-2.5 rounded-2xl px-3 py-3 shadow-[0_16px_40px_-28px_rgba(74,4,24,0.35)] ring-1 ring-burgundy/10 sm:gap-3 sm:px-4 ${item.ground} ${item.live && loaded && item.value > 0 ? "ring-2 ring-gold" : ""}`}
-            >
-              <span className={`grid size-9 shrink-0 place-items-center rounded-full ${item.mark}`}>
-                <item.icon className="size-4" aria-hidden="true" />
-              </span>
-              <div className="min-w-0">
-                <p className="font-sans text-3xl leading-none font-bold text-burgundy-deep tabular-nums" dir="ltr">
-                  {loaded ? item.value : "–"}
-                </p>
-                <p className="mt-1 font-detail text-sm leading-5 font-semibold text-burgundy-deep">{item.label}</p>
-              </div>
-            </article>
-          ))}
-        </section>
-
-        <OrderComposer
-          draft={draft}
-          message={message}
-          busy={adding}
-          onDraftChange={handleDraftChange}
-          onSubmit={handleAdd}
-        />
-
-        {!loaded ? (
-          <p className="text-sm font-medium text-ink/50">{cashierCopy.loadingOrders}</p>
-        ) : null}
-        {listError ? (
-          <p role="alert" className="text-sm font-medium text-burgundy">
-            {listError}
-          </p>
-        ) : null}
-
-        <div className="grid min-w-0 grid-cols-1 gap-4 md:grid-cols-2 md:gap-5 lg:gap-6">
+        <div className="flex flex-col items-stretch gap-3 md:flex-row md:items-start">
           <OrderLane
             title="قيد الانتظار"
             kicker="يُحضَّر الآن"
             empty="لا يوجد طلبات قيد الانتظار حالياً"
             tone="waiting"
-            now={now}
             orders={waiting}
             timeZone={timeZone}
             showEmpty={loaded}
@@ -674,8 +723,8 @@ export function CashierDashboard({ token, user, onUnauthenticated, onInactive })
             kicker="بانتظار الزبون"
             empty="لا يوجد طلبات بانتظار الاستلام حالياً"
             tone="ready"
-            now={now}
             orders={ready}
+            lockedIds={resendLocks}
             timeZone={timeZone}
             showEmpty={loaded}
             trailing={{
@@ -684,6 +733,7 @@ export function CashierDashboard({ token, user, onUnauthenticated, onInactive })
             }}
             primary={{
               label: "تم الاستلام",
+              busyId: collectingId,
               onAction: handleDeliver,
             }}
             secondary={{
@@ -698,6 +748,7 @@ export function CashierDashboard({ token, user, onUnauthenticated, onInactive })
           </>
         )}
       </main>
+      </div>
       </div>
       <UncollectDialog
         order={uncollectTarget}
@@ -716,6 +767,26 @@ export function CashierDashboard({ token, user, onUnauthenticated, onInactive })
         }}
       />
       <QrDialog qr={qr} onDismiss={() => setQr(null)} />
+      <div className="pointer-events-none fixed inset-x-0 bottom-[max(1rem,env(safe-area-inset-bottom))] z-50 flex flex-col items-center gap-2 px-4">
+        {undoToasts.map((item) => (
+          <div
+            key={item.id}
+            role="status"
+            className="pointer-events-auto flex w-full max-w-sm items-center justify-between gap-3 rounded-2xl bg-paper px-4 py-3 text-foreground shadow-[0_18px_40px_-24px_rgba(74,4,24,0.45)] ring-1 ring-border"
+          >
+            <p className="text-sm font-semibold">
+              تم تسليم الطلب #<span dir="ltr">{item.number}</span>
+            </p>
+            <button
+              type="button"
+              onClick={() => undoDeliver(item.id)}
+              className="inline-flex min-h-11 cursor-pointer items-center rounded-full bg-primary px-3 text-sm font-bold text-primary-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              تراجع
+            </button>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

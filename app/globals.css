@@ -27,6 +27,8 @@
   --color-muted-foreground: var(--restaurant-secondary-deep, #8c6e2c);
   --color-border: #eadfca;
   --color-ring: var(--restaurant-secondary, #cda649);
+  --color-aging-warn: color-mix(in srgb, var(--color-gold) 62%, var(--color-ink));
+  --color-aging-danger: color-mix(in srgb, var(--color-burgundy) 46%, black);
   --color-line: var(--choice-line, #cda649);
   --color-track-bg: var(--choice-canvas, #fbf7ee);
   --color-track-surface: #ffffff;
@@ -111,6 +113,26 @@
 
 html {
   color-scheme: light;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--restaurant-primary, var(--color-primary)) 40%, transparent) transparent;
+  scrollbar-gutter: stable;
+}
+
+html::-webkit-scrollbar {
+  width: 8px;
+}
+
+html::-webkit-scrollbar-button {
+  display: none;
+}
+
+html::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+html::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--restaurant-primary, var(--color-primary)) 40%, transparent);
+  border-radius: 999px;
 }
 
 ::selection {

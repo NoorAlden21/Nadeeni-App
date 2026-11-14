@@ -1,9 +1,89 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { Clock } from "lucide-react";
 import { ActionButton } from "@/components/cashier/action-button";
 import { formatElapsed, formatOrderTime } from "@/lib/cashier/orders";
+
+const AGING_WARN_MINUTES = 15;
+const AGING_DANGER_MINUTES = 60;
+
+function agingLevel(iso, now) {
+  if (now == null || !iso) return "normal";
+  const minutes = Math.max(0, Math.floor((now - new Date(iso).getTime()) / 60000));
+  if (minutes >= AGING_DANGER_MINUTES) return "danger";
+  if (minutes >= AGING_WARN_MINUTES) return "warn";
+  return "normal";
+}
+
+function useClock() {
+  const [now, setNow] = useState(null);
+
+  useEffect(() => {
+    let timer = 0;
+    let kick = 0;
+
+    function refresh() {
+      setNow(Date.now());
+    }
+
+    function schedule() {
+      window.clearTimeout(timer);
+      timer = window.setTimeout(() => {
+        if (document.visibilityState === "visible") refresh();
+        schedule();
+      }, 30000);
+    }
+
+    function onVisibilityChange() {
+      if (document.visibilityState === "visible") refresh();
+    }
+
+    kick = window.setTimeout(refresh, 0);
+    schedule();
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => {
+      window.clearTimeout(kick);
+      window.clearTimeout(timer);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
+  }, []);
+
+  return now;
+}
+
+function formatFullStamp(iso, timeZone) {
+  const zone = timeZone || "Asia/Damascus";
+  try {
+    return new Intl.DateTimeFormat("ar-SY", {
+      timeZone: zone,
+      dateStyle: "medium",
+      timeStyle: "short",
+      numberingSystem: "latn",
+      hourCycle: "h23",
+    }).format(new Date(iso));
+  } catch {
+    return formatOrderTime(iso, zone);
+  }
+}
+
+const RelativeTime = memo(function RelativeTime({ iso, timeZone }) {
+  const now = useClock();
+  const full = now == null ? "" : formatFullStamp(iso, timeZone);
+  return (
+    <time dateTime={iso} title={full || undefined} className="text-[13px] font-semibold text-foreground">
+      {formatElapsed(iso, now) || "\u00a0"}
+    </time>
+  );
+});
+
+function AgeBar({ createdAt }) {
+  const now = useClock();
+  const level = agingLevel(createdAt, now);
+  const color = level === "danger" ? "bg-aging-danger" : level === "warn" ? "bg-aging-warn" : "bg-primary";
+  return <span aria-hidden="true" className={`w-1 shrink-0 self-stretch ${color}`} />;
+}
 
 const spring = { type: "spring", stiffness: 460, damping: 36, mass: 0.7 };
 
@@ -47,11 +127,15 @@ function ReadyMark() {
   );
 }
 
-function QuietAction({ children, className = "", ...props }) {
+function QuietAction({ children, className = "", tone = "link", ...props }) {
+  const look =
+    tone === "badge"
+      ? "min-h-11 rounded-full bg-foam px-3 text-sm font-semibold text-burgundy ring-1 ring-burgundy/15 hover:bg-burgundy/5"
+      : "h-11 px-2 text-sm font-medium text-ink/55 underline-offset-4 hover:text-burgundy hover:underline";
   return (
     <button
       type="button"
-      className={`inline-flex h-11 cursor-pointer items-center justify-center px-2 text-sm font-medium text-ink/45 underline-offset-4 transition duration-300 hover:text-burgundy hover:underline focus-visible:rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold focus-visible:ring-offset-2 focus-visible:ring-offset-paper ${className}`}
+      className={`inline-flex cursor-pointer items-center justify-center transition duration-300 focus-visible:rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold focus-visible:ring-offset-2 focus-visible:ring-offset-paper ${look} ${className}`}
       {...props}
     >
       {children}
@@ -61,7 +145,6 @@ function QuietAction({ children, className = "", ...props }) {
 
 function OrderCard({
   order,
-  now,
   ready,
   chipClass,
   chipLabel,
@@ -73,6 +156,7 @@ function OrderCard({
   timeZone,
   pendingId,
   note,
+  locked,
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(order.order_number);
@@ -122,11 +206,7 @@ function OrderCard({
 
   return (
     <div className="relative z-10 flex items-stretch">
-      <span
-        aria-hidden="true"
-        className={`w-1 shrink-0 ${ready ? "bg-gold" : "bg-burgundy"}`}
-      />
-      <div className="@container min-w-0 flex-1 px-3 py-3.5 sm:px-4 sm:py-4">
+      <div className="@container min-w-0 flex-1 px-3 py-2.5">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
             {editing ? (
@@ -168,7 +248,7 @@ function OrderCard({
                     dir="ltr"
                     translate="no"
                     className={`relative max-w-full font-sans font-semibold leading-none break-all text-burgundy-deep ${
-                      longNumber ? "text-2xl" : "text-3xl @min-[22rem]:text-4xl"
+                      longNumber ? "text-xl" : "text-2xl"
                     }`}
                   >
                     {order.order_number}
@@ -181,28 +261,28 @@ function OrderCard({
                     رقم الفاتورة
                   </span>
                 </div>
-                <p className="mt-2.5 min-h-4 text-[0.7rem] font-medium text-ink/35">
-                  {formatElapsed(order.created_at, now)}
+                <p className="mt-2 min-h-4">
+                  <RelativeTime iso={order.created_at} timeZone={timeZone} />
                 </p>
               </>
             )}
           </div>
-          <span
-            className={`mt-1 shrink-0 rounded-full px-2.5 py-1 font-display text-sm font-semibold ring-1 ${chipClass}`}
-          >
-            {chipLabel}
-          </span>
+          {ready ? null : (
+            <span className={`mt-1 shrink-0 rounded-full px-2.5 py-1 font-display text-sm font-semibold ring-1 ${chipClass}`}>
+              {chipLabel}
+            </span>
+          )}
         </div>
 
-        <p className="mt-4 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-ink/65">
-          <span aria-hidden="true" className="size-1 rounded-full bg-gold-deep/70" />
+        <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-ink/65">
+          <Clock className="size-3.5 shrink-0 text-gold-deep" aria-hidden="true" />
           <span>وقت الإدخال</span>
-          <time dir="ltr" dateTime={order.created_at} className="font-medium tabular-nums text-ink/80">
-            {now == null ? "\u00a0" : formatOrderTime(order.created_at, timeZone)}
+          <time dir="ltr" dateTime={order.created_at} className="font-medium tabular-nums text-foreground">
+            {formatOrderTime(order.created_at, timeZone)}
           </time>
         </p>
 
-        <div className="mt-4 flex flex-col gap-2 border-t border-burgundy/8 pt-3.5 @min-[22rem]:flex-row @min-[22rem]:items-center @min-[22rem]:gap-1">
+        <div className="mt-2 flex flex-col gap-2 border-t border-burgundy/8 pt-2 @min-[22rem]:flex-row @min-[22rem]:items-center @min-[22rem]:gap-1">
           {editing ? (
             <>
               <ActionButton
@@ -220,10 +300,11 @@ function OrderCard({
             <>
               <ActionButton
                 onClick={() => primary.onAction(order.id)}
+                disabled={primary.busyId === order.id}
                 aria-label={`${primary.hint || primary.label} للطلب ${order.order_number}`}
                 className="w-full @min-[22rem]:min-w-0 @min-[22rem]:flex-1"
               >
-                <span className="font-display text-lg leading-none">{primary.label}</span>
+                <span className="font-display text-base leading-none">{primary.label}</span>
                 {primary.hint ? (
                   <span className="hidden items-center gap-2 @min-[16rem]:inline-flex">
                     <span aria-hidden="true" className="h-3.5 w-px bg-on-primary/35" />
@@ -268,7 +349,7 @@ function OrderCard({
                 <>
                   <ActionButton
                     variant={secondary.variant || "quiet"}
-                    disabled={pendingId === order.id}
+                    disabled={pendingId === order.id || locked}
                     onClick={() => secondary.onAction(order.id)}
                     aria-label={`${secondary.label} للطلب ${order.order_number}`}
                     className="w-full focus-visible:ring-offset-paper @min-[22rem]:min-w-0 @min-[22rem]:flex-1"
@@ -281,6 +362,7 @@ function OrderCard({
                   </ActionButton>
                   {trailing ? (
                     <QuietAction
+                      tone="badge"
                       onClick={() => trailing.onAction(order.id)}
                       aria-label={`${trailing.label} للطلب ${order.order_number}`}
                       className="shrink-0 whitespace-nowrap"
@@ -312,14 +394,24 @@ function OrderCard({
           </p>
         ) : null}
       </div>
+      <AgeBar createdAt={order.created_at} />
     </div>
   );
 }
 
 function LaneEmpty({ tone, children }) {
+  const compact = tone !== "ready";
   return (
-    <div className="flex flex-col items-center justify-center gap-3 rounded-[1.25rem] border border-dashed border-burgundy/12 bg-ivory/55 px-6 py-9 text-center">
-      <span className="grid size-14 place-items-center rounded-2xl bg-paper text-gold-deep shadow-[0_12px_28px_-18px_rgba(74,4,24,0.55)] ring-1 ring-gold/35">
+    <div
+      className={`flex flex-col items-center justify-center rounded-[1.25rem] border border-dashed border-burgundy/12 bg-ivory/55 text-center ${
+        compact ? "gap-2 px-4 py-4" : "gap-3 px-6 py-9"
+      }`}
+    >
+      <span
+        className={`grid place-items-center rounded-2xl bg-paper text-gold-deep ring-1 ring-gold/35 ${
+          compact ? "size-9 [&_svg]:size-4" : "size-14 shadow-[0_12px_28px_-18px_rgba(74,4,24,0.55)]"
+        }`}
+      >
         {tone === "ready" ? <ReadyMark /> : <WaitingMark />}
       </span>
       <p className="max-w-56 text-sm font-medium leading-6 text-ink/40">{children}</p>
@@ -332,7 +424,6 @@ export function OrderLane({
   kicker,
   empty,
   tone,
-  now,
   orders,
   primary,
   secondary,
@@ -343,10 +434,18 @@ export function OrderLane({
   pendingId,
   note,
   showEmpty = true,
+  lockedIds,
 }) {
   const reduceMotion = useReducedMotion();
+  const [oldestFirst, setOldestFirst] = useState(false);
   const headingId = `lane-${tone}`;
   const ready = tone === "ready";
+  const shown = ready && oldestFirst
+    ? [...orders].sort((a, b) => {
+        if (a.created_at === b.created_at) return 0;
+        return a.created_at < b.created_at ? -1 : 1;
+      })
+    : orders;
   const chipClass = ready
     ? "bg-gold/20 text-burgundy-deep ring-gold/50"
     : "bg-foam text-burgundy ring-burgundy/10";
@@ -358,26 +457,37 @@ export function OrderLane({
   return (
     <section
       aria-labelledby={headingId}
-      className={`min-w-0 rounded-[1.6rem] p-3 shadow-[0_20px_50px_-28px_rgba(74,4,24,0.22)] ring-1 sm:p-4 lg:p-5 ${sectionClass}`}
+      className={`flex w-full min-w-0 shrink-0 flex-col rounded-[1.6rem] p-3 shadow-[0_20px_50px_-28px_rgba(74,4,24,0.22)] ring-1 md:w-auto md:flex-1 ${sectionClass}`}
     >
-      <header className="mb-4 flex items-end justify-between gap-3 border-b border-burgundy/10 pb-3">
+      <header className="mb-2 flex shrink-0 items-end justify-between gap-3 border-b border-burgundy/10 pb-2">
         <div className="min-w-0">
           <p className="mb-1 text-xs font-semibold text-gold-deep">{kicker}</p>
           <h2
             id={headingId}
-            className="font-display text-2xl font-semibold leading-tight text-balance text-burgundy-deep sm:text-[1.65rem]"
+            className="font-display text-xl font-semibold leading-tight text-balance text-burgundy-deep sm:text-2xl"
           >
             {title}
           </h2>
         </div>
-        <span className="grid size-9 shrink-0 place-items-center rounded-full bg-ivory font-sans text-sm font-semibold tabular-nums text-burgundy-deep ring-1 ring-burgundy/10">
-          {orders.length}
-        </span>
+        <div className="flex shrink-0 items-center gap-2">
+          {ready ? (
+            <button
+              type="button"
+              onClick={() => setOldestFirst((current) => !current)}
+              className="inline-flex min-h-11 cursor-pointer items-center rounded-full bg-ivory px-3 text-xs font-semibold text-burgundy-deep ring-1 ring-burgundy/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
+            >
+              {oldestFirst ? "الأحدث أولاً" : "الأقدم أولاً"}
+            </button>
+          ) : null}
+          <span className="grid size-9 place-items-center rounded-full bg-ivory font-sans text-sm font-semibold tabular-nums text-burgundy-deep ring-1 ring-burgundy/10">
+            {orders.length}
+          </span>
+        </div>
       </header>
 
-      <ul className="flex flex-col gap-3">
+      <ul className="flex flex-col content-start gap-3">
         <AnimatePresence mode="popLayout" initial={false}>
-          {orders.map((order) => (
+          {shown.map((order) => (
               <motion.li
                 key={order.id}
                 initial={reduceMotion ? false : { opacity: 0, y: 16 }}
@@ -388,11 +498,10 @@ export function OrderLane({
                     : { opacity: 0, scale: 0.98, y: 10 }
                 }
                 transition={reduceMotion ? { duration: 0 } : spring}
-                className="overflow-hidden rounded-[1.35rem] bg-paper shadow-[0_18px_40px_-26px_rgba(74,4,24,0.45)] ring-1 ring-burgundy/10"
+                className="shrink-0 overflow-hidden rounded-[1.35rem] bg-paper shadow-[0_18px_40px_-26px_rgba(74,4,24,0.45)] ring-1 ring-burgundy/10"
               >
                 <OrderCard
                   order={order}
-                  now={now}
                   ready={ready}
                   chipClass={chipClass}
                   chipLabel={chipLabel}
@@ -403,6 +512,7 @@ export function OrderLane({
                   trailing={trailing}
                   timeZone={timeZone}
                   pendingId={pendingId}
+                  locked={Boolean(lockedIds?.[order.id])}
                   note={note}
                 />
               </motion.li>
