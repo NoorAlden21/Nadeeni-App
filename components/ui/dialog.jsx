@@ -22,10 +22,10 @@ function DialogOverlay({ className, ...props }) {
   );
 }
 
-function DialogContent({ className, children, closeLabel = "Close", sheet = false, page = false, hideClose = false, ...props }) {
+function DialogContent({ className, children, closeLabel = "Close", sheet = false, page = false, hideClose = false, overlayClassName, ...props }) {
   return (
     <DialogPortal>
-      <DialogOverlay />
+      <DialogOverlay className={overlayClassName} />
       <DialogPrimitive.Content
         data-slot="dialog-content"
         className={cn(

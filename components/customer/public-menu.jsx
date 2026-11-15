@@ -287,6 +287,7 @@ function ItemDialog({ item, onClose, lang }) {
       <DialogContent
         closeLabel={phrase("menuClose", lang)}
         dir={lang === "en" ? "ltr" : "rtl"}
+        overlayClassName="bg-black/40"
         className="max-h-[min(40rem,calc(100dvh-2rem))] gap-0 overflow-y-auto bg-white p-0 font-detail"
       >
         <div className="relative bg-soft">
