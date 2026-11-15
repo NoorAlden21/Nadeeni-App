@@ -68,24 +68,24 @@ function BackIcon({ className = "" }) {
 //   );
 // }
 
-function GridIcon() {
-  return (
-    <svg viewBox="0 0 24 24" className="size-4" aria-hidden="true" fill="currentColor">
-      <path d="M4 4h6.5v6.5H4V4zm9.5 0H20v6.5h-6.5V4zM4 13.5h6.5V20H4v-6.5zm9.5 0H20V20h-6.5v-6.5z" />
-    </svg>
-  );
-}
+// function GridIcon() {
+//   return (
+//     <svg viewBox="0 0 24 24" className="size-4" aria-hidden="true" fill="currentColor">
+//       <path d="M4 4h6.5v6.5H4V4zm9.5 0H20v6.5h-6.5V4zM4 13.5h6.5V20H4v-6.5zm9.5 0H20V20h-6.5v-6.5z" />
+//     </svg>
+//   );
+// }
 
-function ListIcon() {
-  return (
-    <svg viewBox="0 0 24 24" className="size-4" aria-hidden="true" fill="currentColor">
-      <circle cx="5" cy="6.5" r="1.6" />
-      <circle cx="5" cy="12" r="1.6" />
-      <circle cx="5" cy="17.5" r="1.6" />
-      <path d="M9 5.4h11v2.2H9V5.4zm0 5.5h11v2.2H9v-2.2zm0 5.5h11v2.2H9v-2.2z" />
-    </svg>
-  );
-}
+// function ListIcon() {
+//   return (
+//     <svg viewBox="0 0 24 24" className="size-4" aria-hidden="true" fill="currentColor">
+//       <circle cx="5" cy="6.5" r="1.6" />
+//       <circle cx="5" cy="12" r="1.6" />
+//       <circle cx="5" cy="17.5" r="1.6" />
+//       <path d="M9 5.4h11v2.2H9V5.4zm0 5.5h11v2.2H9v-2.2zm0 5.5h11v2.2H9v-2.2z" />
+//     </svg>
+//   );
+// }
 
 function BarsIcon() {
   return (
@@ -472,33 +472,33 @@ function CategoryFilterSheet({ categories, active, onChoose, onClose, lang }) {
   );
 }
 
-function LayoutSwitch({ layout, onChange, lang }) {
-  return (
-    <div className="flex w-max shrink-0 items-center rounded-lg border border-black/10 bg-white sm:hidden">
-      {[
-        ["grid", phrase("menuGrid", lang), <GridIcon key="grid" />],
-        ["list", phrase("menuList", lang), <ListIcon key="list" />],
-      ].map(([id, label, icon]) => {
-        const selected = layout === id;
-        return (
-          <button
-            key={id}
-            type="button"
-            aria-pressed={selected}
-            aria-label={label}
-            title={label}
-            onClick={() => onChange(id)}
-            className={`inline-flex size-8 cursor-pointer items-center justify-center rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold ${
-              selected ? "bg-soft text-ink" : "text-ink/55"
-            }`}
-          >
-            {icon}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
+// function LayoutSwitch({ layout, onChange, lang }) {
+//   return (
+//     <div className="flex w-max shrink-0 items-center rounded-lg border border-black/10 bg-white sm:hidden">
+//       {[
+//         ["grid", phrase("menuGrid", lang), <GridIcon key="grid" />],
+//         ["list", phrase("menuList", lang), <ListIcon key="list" />],
+//       ].map(([id, label, icon]) => {
+//         const selected = layout === id;
+//         return (
+//           <button
+//             key={id}
+//             type="button"
+//             aria-pressed={selected}
+//             aria-label={label}
+//             title={label}
+//             onClick={() => onChange(id)}
+//             className={`inline-flex size-8 cursor-pointer items-center justify-center rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold ${
+//               selected ? "bg-soft text-ink" : "text-ink/55"
+//             }`}
+//           >
+//             {icon}
+//           </button>
+//         );
+//       })}
+//     </div>
+//   );
+// }
 
 function CategoryIcon({ src, label, selected }) {
   const asset = useAsset(src);
@@ -636,10 +636,10 @@ export function PublicMenu({ name, nameEn = "", iconUrl, contact = null, banners
   const [board, setBoard] = useState("main");
   const [pickerOpen, setPickerOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [layout, setLayout] = useState("list");
+  const [layout] = useState("list");
   const [query, setQuery] = useState("");
   const [detail, setDetail] = useState(null);
-  const [lang, setLang] = useState("en");
+  const [lang, setLang] = useState("ar");
   const shownName = restaurantTitle({ name, name_en: nameEn }, lang);
   const boarded = categoriesForBoard(categories, board);
   const visible = visibleCategories(boarded, query);
@@ -814,11 +814,11 @@ export function PublicMenu({ name, nameEn = "", iconUrl, contact = null, banners
       ) : null}
 
       {!loading && showStrip ? (
-        <div className="pt-1">
+        <div className="mt-4 mb-3">
           <div className="flex items-center justify-between gap-3">
             <div className="flex min-w-0 items-center gap-2">
               <span aria-hidden="true" className="h-[1.625rem] w-[7px] shrink-0 rounded-full bg-burgundy" />
-              <p className="truncate text-[1.2rem] leading-none font-extrabold text-ink sm:text-[1.35rem]">{phrase("menuCategories", lang)}</p>
+              <p className="truncate text-[1.2rem] leading-snug font-extrabold text-ink sm:text-[1.35rem]">{phrase("menuCategories", lang)}</p>
             </div>
             <button
               type="button"
@@ -863,7 +863,7 @@ export function PublicMenu({ name, nameEn = "", iconUrl, contact = null, banners
                 <h2 id={`menu-category-${currentGroup.sourceIndex}`} className="min-w-0 truncate font-detail text-[1.35rem] leading-8 font-bold text-ink">
                   {localized(currentGroup.name, lang)}
                 </h2>
-                <LayoutSwitch layout={layout} onChange={setLayout} lang={lang} />
+                {/* <LayoutSwitch layout={layout} onChange={setLayout} lang={lang} /> */}
               </motion.div>
               <ul className={itemGridClass}>
                 {currentCards.map((item, itemIndex) => (
