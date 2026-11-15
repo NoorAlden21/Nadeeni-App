@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { ActionButton } from "@/components/cashier/action-button";
+import { OptimizedImage } from "@/components/media/optimized-image";
 import { Field, SelectInput, TextInput } from "@/components/admin/fields";
 import { formatStamp, slugPattern, wholeNumber } from "@/lib/admin/format";
 import { restaurantIconSrc } from "@/lib/api/client";
@@ -353,7 +354,14 @@ export function RestaurantPanel({
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="flex min-w-0 items-start gap-3">
                       {restaurant.icon_url ? (
-                        <img src={restaurantIconSrc(restaurant.icon_url)} alt="" className="h-12 w-12 shrink-0 rounded-2xl object-cover ring-1 ring-burgundy/10" />
+                        <OptimizedImage
+                          src={restaurantIconSrc(restaurant.icon_url)}
+                          alt=""
+                          width={48}
+                          height={48}
+                          sizes="48px"
+                          className="h-12 w-12 shrink-0 rounded-2xl object-cover ring-1 ring-burgundy/10"
+                        />
                       ) : null}
                       <div className="min-w-0">
                       <p className="font-display text-xl font-semibold text-burgundy-deep">
@@ -563,7 +571,14 @@ export function RestaurantPanel({
               className="block w-full cursor-pointer text-sm text-ink file:me-3 file:cursor-pointer file:rounded-2xl file:border-0 file:bg-foam file:px-4 file:py-2 file:font-semibold file:text-burgundy-deep"
             />
             {editing?.icon_url ? (
-              <img src={restaurantIconSrc(editing.icon_url)} alt="" className="mt-3 h-16 w-16 rounded-2xl object-cover ring-1 ring-burgundy/10" />
+              <OptimizedImage
+                src={restaurantIconSrc(editing.icon_url)}
+                alt=""
+                width={64}
+                height={64}
+                sizes="64px"
+                className="mt-3 h-16 w-16 rounded-2xl object-cover ring-1 ring-burgundy/10"
+              />
             ) : null}
           </Field>
           <Field id="restaurant-facebook" label="فيسبوك">

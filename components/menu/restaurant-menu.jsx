@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ConfirmDialog } from "@/components/admin/confirm-dialog";
+import { OptimizedImage } from "@/components/media/optimized-image";
 import { ActionButton } from "@/components/cashier/action-button";
 import { apiFetch } from "@/lib/api/client";
 import { isFeatureUnavailable } from "@/lib/features";
@@ -137,14 +138,9 @@ function Thumb({ src, label }) {
 
   if (src && !failed) {
     return (
-      // The address is an absolute API file. A missing image is 404.
-      // eslint-disable-next-line @next/next/no-img-element
-      <img
-        src={src}
-        alt=""
-        onError={() => setFailedSrc(src)}
-        className={`${frame} object-cover ring-1 ring-burgundy/10`}
-      />
+      <span className={`relative block overflow-hidden ${frame} ring-1 ring-burgundy/10`}>
+        <OptimizedImage src={src} alt="" fill sizes="40px" onError={() => setFailedSrc(src)} className="object-cover" />
+      </span>
     );
   }
 
@@ -769,13 +765,9 @@ export function RestaurantMenu({ token, onUnauthenticated, onInactive, onFeature
                 }`}
               >
                 <div className="flex min-w-0 items-center gap-3">
-                  {/* The address is an absolute API file. A missing image is 404. */}
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={banner.image_url}
-                    alt=""
-                    className="h-16 w-28 shrink-0 rounded-xl object-cover ring-1 ring-burgundy/10"
-                  />
+                  <span className="relative block h-16 w-28 shrink-0 overflow-hidden rounded-xl ring-1 ring-burgundy/10">
+                    <OptimizedImage src={banner.image_url} alt="" fill sizes="112px" className="object-cover" />
+                  </span>
                   <Pill on={banner.is_active} onLabel="ظاهرة" offLabel="مخفية" />
                 </div>
                 <div className="flex flex-wrap items-center justify-end gap-2">

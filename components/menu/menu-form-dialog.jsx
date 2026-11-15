@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Field, SelectInput, TextInput } from "@/components/admin/fields";
+import { OptimizedImage } from "@/components/media/optimized-image";
 import { ActionButton } from "@/components/cashier/action-button";
 import { buildCategoryPayload, buildItemPayload, imageFileError } from "@/lib/menu/menu";
 
@@ -224,10 +225,12 @@ function MenuFormBody({ draft, categories, pending, onSave, onClose }) {
             </span>
             <div className="flex flex-wrap items-center gap-3">
               {imageSrc ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
+                <OptimizedImage
                   src={imageSrc}
                   alt=""
+                  width={64}
+                  height={64}
+                  sizes="64px"
                   className="size-16 rounded-2xl object-cover ring-1 ring-burgundy/10"
                 />
               ) : null}

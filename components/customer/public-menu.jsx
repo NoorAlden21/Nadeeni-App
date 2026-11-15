@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
+import { OptimizedImage } from "@/components/media/optimized-image";
 import { menuAssetSrc } from "@/lib/api/client";
 // import { RestaurantContact } from "@/components/customer/restaurant-contact";
 import { customerCopy } from "@/lib/customer/public";
@@ -23,19 +24,22 @@ function useAsset(src) {
   };
 }
 
-function RoundPhoto({ src, label, className, fit = "cover" }) {
+function RoundPhoto({ src, label, className, fit = "cover", sizes, priority = false, quality = 60 }) {
   const asset = useAsset(src);
   if (asset.visible) {
     return (
-      // The address is an absolute API file. A missing image is 404.
-      // eslint-disable-next-line @next/next/no-img-element
-      <img
-        src={asset.resolved}
-        alt=""
-        loading="lazy"
-        onError={asset.fail}
-        className={`${fit === "contain" ? "object-contain" : "object-cover"} ${className}`}
-      />
+      <span className={`relative block overflow-hidden ${className}`}>
+        <OptimizedImage
+          src={asset.resolved}
+          alt=""
+          fill
+          sizes={sizes}
+          priority={priority}
+          quality={quality}
+          onError={asset.fail}
+          className={fit === "contain" ? "object-contain" : "object-cover"}
+        />
+      </span>
     );
   }
 
@@ -91,15 +95,25 @@ function BarsIcon() {
   );
 }
 
-function BannerPhoto({ src }) {
+function BannerPhoto({ src, priority = false }) {
   const asset = useAsset(src);
   if (!asset.visible) {
     return <div className="aspect-[16/9] w-full bg-burgundy-deep sm:aspect-[2.2/1]" />;
   }
 
   return (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img src={asset.resolved} alt="" onError={asset.fail} className="aspect-[16/9] w-full object-cover sm:aspect-[2.2/1]" />
+    <span className="relative block aspect-[16/9] w-full sm:aspect-[2.2/1]">
+      <OptimizedImage
+        src={asset.resolved}
+        alt=""
+        fill
+        sizes="(max-width: 639px) calc(100vw - 2rem), (max-width: 1023px) calc(100vw - 4rem), 960px"
+        priority={priority}
+        blur
+        onError={asset.fail}
+        className="object-cover"
+      />
+    </span>
   );
 }
 
@@ -132,7 +146,7 @@ function BannerHero({ banners }) {
         animate={{ scale: zoomed ? 1.04 : 1 }}
         transition={{ duration: 6, ease: [0.25, 0.1, 0.25, 1] }}
       >
-        <BannerPhoto key={current.imageUrl} src={current.imageUrl} />
+        <BannerPhoto key={current.imageUrl} src={current.imageUrl} priority={index === 0} />
       </motion.div>
       {banners.length > 1 ? (
         <div className="absolute inset-x-0 bottom-3 z-20 flex justify-center gap-1.5">
@@ -276,7 +290,13 @@ function ItemDialog({ item, onClose, lang }) {
         className="max-h-[min(40rem,calc(100dvh-2rem))] gap-0 overflow-y-auto bg-white p-0 font-detail"
       >
         <div className="relative bg-soft">
-          <RoundPhoto src={item.photoUrl} label={itemName} className="aspect-[4/3] w-full text-5xl" />
+          <RoundPhoto
+            src={item.photoUrl}
+            label={itemName}
+            sizes="(max-width: 640px) calc(100vw - 2rem), 32rem"
+            quality={75}
+            className="aspect-[4/3] w-full text-5xl"
+          />
           <ItemBadge badge={item.badge} lang={lang} />
         </div>
         <div className="px-5 pt-5 pb-6">
@@ -486,9 +506,10 @@ function CategoryIcon({ src, label, selected }) {
   }`;
   if (asset.visible) {
     return (
-      <span className={shell}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={asset.resolved} alt="" loading="lazy" onError={asset.fail} className="size-full object-contain p-1" />
+      <span className={`${shell} p-1`}>
+        <span className="relative size-full">
+          <OptimizedImage src={asset.resolved} alt="" fill sizes="40px" onError={asset.fail} className="object-contain" />
+        </span>
       </span>
     );
   }
@@ -534,10 +555,14 @@ function CategoryStrip({ categories, active, onChoose, stripRef, lang }) {
   );
 }
 
-function MenuItemCard({ item, layout, onOpen, lang, index = 0 }) {
+function MenuItemCard({ item, layout, onOpen, lang, index = 0, priority = false }) {
   const reduce = useReducedMotion();
   const price = item.price === null ? "" : formatPrice(item.price);
   const itemName = localized(item.name, lang);
+  const photoSizes =
+    layout === "list"
+      ? "(max-width: 639px) calc(100vw - 2rem), (max-width: 1023px) calc(50vw - 2.5rem), 320px"
+      : "(max-width: 639px) calc(50vw - 1.25rem), (max-width: 1023px) calc(33vw - 1.5rem), 240px";
   const descriptionText = localized(item.description, lang);
   const description = descriptionText && descriptionText.trim() !== itemName.trim() ? descriptionText : "";
   const enter = reduce ? false : { y: 16, opacity: 0 };
@@ -558,7 +583,7 @@ function MenuItemCard({ item, layout, onOpen, lang, index = 0 }) {
           className="flex h-full w-full cursor-pointer flex-col overflow-hidden rounded-[1.25rem] border border-black/[0.06] bg-white text-start shadow-[0_4px_16px_rgba(42,16,22,0.06)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
         >
           <span className="relative block bg-soft">
-            <RoundPhoto src={item.photoUrl} label={itemName} className="aspect-[4/3] w-full text-5xl" />
+            <RoundPhoto src={item.photoUrl} label={itemName} sizes={photoSizes} priority={priority} className="aspect-[4/3] w-full text-5xl" />
             <ItemBadge badge={item.badge} lang={lang} />
           </span>
           <span className="flex flex-1 flex-col gap-2.5 px-[1.125rem] pt-4 pb-[1.125rem]">
@@ -584,7 +609,7 @@ function MenuItemCard({ item, layout, onOpen, lang, index = 0 }) {
           className="flex h-full w-full cursor-pointer flex-col rounded-[1.35rem] bg-white p-2 text-start shadow-[0_14px_32px_-20px_rgba(42,16,22,0.4)] ring-1 ring-black/[0.04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
         >
           <span className="relative block overflow-hidden rounded-[1.05rem]">
-            <RoundPhoto src={item.photoUrl} label={localized(item.name, lang)} className="aspect-[5/4] w-full text-3xl" />
+            <RoundPhoto src={item.photoUrl} label={localized(item.name, lang)} sizes={photoSizes} priority={priority} className="aspect-[5/4] w-full text-3xl" />
             <ItemBadge badge={item.badge} lang={lang} />
           </span>
           <span className="flex flex-1 flex-col items-center px-1.5 pt-3 pb-1.5 text-center">
@@ -724,7 +749,9 @@ export function PublicMenu({ name, nameEn = "", iconUrl, contact = null, banners
             </button>
           ) : null}
           {iconUrl ? (
-            <img src={iconUrl} alt="" className="size-10 shrink-0 rounded-full bg-photo object-cover ring-1 ring-black/5 sm:size-12 md:size-14" />
+            <span className="relative size-10 shrink-0 overflow-hidden rounded-full bg-photo ring-1 ring-black/5 sm:size-12 md:size-14">
+              <OptimizedImage src={iconUrl} alt="" fill sizes="56px" eager className="object-cover" />
+            </span>
           ) : null}
           {shownName ? <h1 className="min-w-0 flex-1 truncate text-sm font-semibold text-ink sm:text-base md:text-lg">{shownName}</h1> : <span className="flex-1" />}
           <div role="group" aria-label={lang === "en" ? "Language" : "اللغة"} className="ms-auto flex shrink-0 rounded-full bg-white p-1 ring-1 ring-burgundy/15">
@@ -839,7 +866,15 @@ export function PublicMenu({ name, nameEn = "", iconUrl, contact = null, banners
               </motion.div>
               <ul className={itemGridClass}>
                 {currentCards.map((item, itemIndex) => (
-                  <MenuItemCard key={item.key} item={item} layout={layout} onOpen={setDetail} lang={lang} index={itemIndex} />
+                  <MenuItemCard
+                    key={item.key}
+                    item={item}
+                    layout={layout}
+                    onOpen={setDetail}
+                    lang={lang}
+                    index={itemIndex}
+                    priority={itemIndex === 0 && banners.length === 0}
+                  />
                 ))}
               </ul>
             </section>

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { AnimatePresence, motion, useAnimation, useReducedMotion } from "framer-motion";
 import { ArrowLeft, ArrowRight, History, Keyboard, Loader2 } from "lucide-react";
 import { PoweredBy } from "@/components/brand/powered-by";
+import { OptimizedImage } from "@/components/media/optimized-image";
 import { ActionButton } from "@/components/cashier/action-button";
 import { PageMotion } from "@/components/motion/page-motion";
 import { PressButton } from "@/components/motion/press-button";
@@ -261,7 +262,15 @@ export function RestaurantEntry({ slug }) {
           {name ? (
             <div className="mt-3 flex items-center gap-3">
               {iconUrl ? (
-                <img src={iconUrl} alt="" className="h-12 w-12 shrink-0 rounded-2xl object-cover ring-1 ring-burgundy/10 sm:h-14 sm:w-14" />
+                <OptimizedImage
+                  src={iconUrl}
+                  alt=""
+                  width={56}
+                  height={56}
+                  sizes="56px"
+                  eager
+                  className="h-12 w-12 shrink-0 rounded-2xl object-cover ring-1 ring-burgundy/10 sm:h-14 sm:w-14"
+                />
               ) : null}
               <h1 className="max-w-full font-display text-4xl font-bold wrap-break-word text-burgundy-deep sm:text-5xl">
                 {name}
@@ -352,7 +361,7 @@ export function RestaurantEntry({ slug }) {
           <motion.div variants={logoIn} className="flex justify-center">
             {iconUrl ? (
               <div className="relative flex size-14 items-center justify-center overflow-hidden rounded-2xl bg-paper p-1 shadow-track">
-                <img src={iconUrl} alt="" className="size-full rounded-xl object-cover" />
+                <OptimizedImage src={iconUrl} alt="" width={48} height={48} sizes="48px" eager className="size-full rounded-xl object-cover" />
                 {reduceMotion ? null : (
                   <motion.span
                     aria-hidden="true"
@@ -555,14 +564,14 @@ function ChoiceDoor({ name = "", onTrack, onMenu, iconUrl = "", heroUrl = "" }) 
       title: customerCopy.chooseTrack,
       onClick: onTrack,
       icon: (
-        <img src="/choice-track-icon.png" alt="" className="size-11 object-contain" />
+        <OptimizedImage src="/choice-track-icon.png" alt="" width={44} height={44} sizes="44px" eager className="size-11 object-contain" />
       ),
     },
     {
       title: customerCopy.chooseMenu,
       onClick: onMenu,
       icon: (
-        <img src="/choice-menu-icon.png" alt="" className="size-11 object-contain" />
+        <OptimizedImage src="/choice-menu-icon.png" alt="" width={44} height={44} sizes="44px" eager className="size-11 object-contain" />
       ),
     },
   ];
@@ -570,15 +579,25 @@ function ChoiceDoor({ name = "", onTrack, onMenu, iconUrl = "", heroUrl = "" }) 
   return (
     <div className="relative flex min-h-dvh flex-col" style={{ backgroundColor: choiceCanvas }}>
       <div className="relative h-[40vh] min-h-[15.5rem] max-h-[23rem] overflow-hidden">
-        <motion.img
-          src={hero || "/choice-dining.png"}
-          alt=""
-          className="absolute inset-0 size-full object-cover object-[center_36%]"
+        <motion.div
+          className="absolute inset-0"
           initial={reduce ? false : { scale: 1.08, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           transition={{ duration: 0.9, ease: "easeOut" }}
-          onError={() => setHero("")}
-        />
+        >
+          <OptimizedImage
+            src={hero || "/choice-dining.png"}
+            alt=""
+            fill
+            sizes="100vw"
+            priority
+            blur
+            className="object-cover object-[center_36%]"
+            onError={() => {
+              if (hero) setHero("");
+            }}
+          />
+        </motion.div>
         <div
           className="absolute inset-0"
           style={{
@@ -590,18 +609,25 @@ function ChoiceDoor({ name = "", onTrack, onMenu, iconUrl = "", heroUrl = "" }) 
 
       <div className="relative z-10 mx-auto -mt-9 flex w-full max-w-md flex-1 flex-col items-center px-5 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
         <motion.span
-          className={`grid size-[4.25rem] place-items-center overflow-hidden rounded-full shadow-[0_12px_30px_-16px_rgba(74,4,24,0.5)] ${mark ? "ring-2 ring-gold" : ""}`}
+          className={`relative grid size-[4.25rem] place-items-center overflow-hidden rounded-full shadow-[0_12px_30px_-16px_rgba(74,4,24,0.5)] ${mark ? "ring-2 ring-gold" : ""}`}
           style={{ backgroundColor: choiceCanvas }}
           initial={reduce ? false : { scale: 0.6, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           transition={{ type: "spring", stiffness: 280, damping: 18, delay: 0.15 }}
         >
-          <img
-            src={mark || "/choice-cloche.png"}
-            alt=""
-            className={mark ? "size-full object-cover" : "block size-[2.85rem] object-contain object-center"}
-            onError={() => setMark("")}
-          />
+          {mark ? (
+            <OptimizedImage src={mark} alt="" fill sizes="68px" eager className="object-cover" onError={() => setMark("")} />
+          ) : (
+            <OptimizedImage
+              src="/choice-cloche.png"
+              alt=""
+              width={46}
+              height={46}
+              sizes="46px"
+              eager
+              className="block size-[2.85rem] object-contain object-center"
+            />
+          )}
         </motion.span>
         <motion.h1
           className="mt-5 max-w-full text-center font-display text-[1.85rem] leading-tight font-bold wrap-break-word text-burgundy-deep"
