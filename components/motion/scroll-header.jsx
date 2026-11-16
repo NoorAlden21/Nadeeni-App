@@ -1,6 +1,7 @@
 "use client";
 
 import { motion, useScroll, useTransform } from "framer-motion";
+import { OptimizedImage } from "@/components/media/optimized-image";
 
 export function ScrollHeader({ scrollerRef, iconUrl, name }) {
   const { scrollY } = useScroll({ container: scrollerRef });
@@ -19,7 +20,9 @@ export function ScrollHeader({ scrollerRef, iconUrl, name }) {
         style={{ opacity: shade }}
         className="pointer-events-none absolute inset-0 rounded-full bg-track-surface shadow-track"
       />
-      {iconUrl ? <img src={iconUrl} alt="" className="relative size-11 rounded-full object-cover" /> : null}
+      {iconUrl ? (
+        <OptimizedImage src={iconUrl} alt="" width={44} height={44} sizes="44px" className="relative size-11 rounded-full object-cover" />
+      ) : null}
       <p className="relative text-[15px] font-bold text-track-ink">{name}</p>
     </motion.div>
     </div>

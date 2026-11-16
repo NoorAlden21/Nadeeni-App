@@ -6,6 +6,7 @@ import { createPortal } from "react-dom";
 import { toast, Toaster } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { ConfirmDialog } from "@/components/admin/confirm-dialog";
+import { OptimizedImage } from "@/components/media/optimized-image";
 import { ActionButton } from "@/components/cashier/action-button";
 import { apiFetch } from "@/lib/api/client";
 import { isFeatureUnavailable } from "@/lib/features";
@@ -323,14 +324,9 @@ function Thumb({ src, label, frame = "size-10 shrink-0 rounded-lg" }) {
 
   if (src && !failed) {
     return (
-      // The address is an absolute API file. A missing image is 404.
-      // eslint-disable-next-line @next/next/no-img-element
-      <img
-        src={src}
-        alt=""
-        onError={() => setFailedSrc(src)}
-        className={`${frame} object-cover ring-1 ring-burgundy/10`}
-      />
+      <span className={`relative block overflow-hidden ${frame} ring-1 ring-burgundy/10`}>
+        <OptimizedImage src={src} alt="" fill sizes="40px" onError={() => setFailedSrc(src)} className="object-cover" />
+      </span>
     );
   }
 
