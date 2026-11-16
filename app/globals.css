@@ -29,6 +29,8 @@
   --color-ring: var(--restaurant-secondary, #cda649);
   --color-aging-warn: color-mix(in srgb, var(--color-gold) 62%, var(--color-ink));
   --color-aging-danger: color-mix(in srgb, var(--color-burgundy) 46%, black);
+  --color-destructive: color-mix(in srgb, var(--color-primary) 68%, black);
+  --color-destructive-foreground: var(--color-primary-foreground);
   --color-line: var(--choice-line, #cda649);
   --color-track-bg: var(--choice-canvas, #fbf7ee);
   --color-track-surface: #ffffff;

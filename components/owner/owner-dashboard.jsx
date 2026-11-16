@@ -11,7 +11,7 @@ import { OwnerLoyalty } from "@/components/owner/owner-loyalty";
 import { OwnerReviews } from "@/components/owner/owner-reviews";
 import { RestaurantMenu } from "@/components/menu/restaurant-menu";
 import { SideNav } from "@/components/menu/screen-switch";
-import { LogOut, Menu, X } from "lucide-react";
+import { LogOut, Menu, QrCode, X } from "lucide-react";
 import { qrTargetUrl } from "@/lib/qr/download";
 import { readFeatures } from "@/lib/features";
 import { useRestaurantTheme } from "@/components/theme/use-restaurant-theme";
@@ -118,11 +118,11 @@ export function OwnerDashboard({ token, user, onUnauthenticated, onInactive }) {
   const loyaltyOn = features.loyalty && !loyaltyOff;
   const screens = [
     { id: "orders", label: "الطلبات" },
-    { id: "customers", label: "الزبائن" },
-    { id: "reviews", label: "تقييمات الزبائن" },
     { id: "contact", label: "التواصل" },
     menuOn ? { id: "menu", label: "القائمة" } : null,
     loyaltyOn ? { id: "loyalty", label: "الولاء" } : null,
+    { id: "customers", label: "الزبائن" },
+    { id: "reviews", label: "تقييمات الزبائن" },
   ].filter(Boolean);
   const visible = screens.some((item) => item.id === screen) ? screen : "customers";
   const showNav = screens.length > 1;
@@ -271,7 +271,7 @@ export function OwnerDashboard({ token, user, onUnauthenticated, onInactive }) {
   }
 
   return (
-    <div style={theme} className="min-h-dvh overflow-x-clip bg-[#fcfbfc]">
+    <div style={theme} className="min-h-dvh bg-[#fcfbfc]">
       {showNav ? (
         <>
           {navOpen ? (
@@ -338,21 +338,23 @@ export function OwnerDashboard({ token, user, onUnauthenticated, onInactive }) {
           <BrandMark className={`h-10 w-10 sm:h-12 sm:w-12 ${showNav ? "md:hidden" : ""}`} />
           <div className="min-w-0">
             <h1 className="truncate font-display text-xl font-bold text-burgundy-deep sm:text-2xl">
-              {sectionTitle}
+              {visible === "menu" ? "القائمة / التصنيفات" : sectionTitle}
             </h1>
             {user.restaurant?.name ? (
               <p className={`truncate text-sm font-medium text-ink/50 ${showNav ? "md:hidden" : ""}`}>{user.restaurant.name}</p>
             ) : null}
           </div>
           <div className="ms-auto flex shrink-0 items-center gap-2">
-            <button
-              type="button"
+            <ActionButton
+              variant="primary"
               onClick={showSharedQr}
               disabled={!user.restaurant?.slug}
-              className="inline-flex h-10 cursor-pointer items-center justify-center rounded-xl bg-wash px-4 text-sm font-semibold text-gold-deep shadow-sm ring-1 ring-inset ring-gold/30 transition duration-300 hover:bg-gold/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold disabled:pointer-events-none disabled:opacity-40"
+              aria-label="رمز المطعم"
+              title="رمز المطعم"
             >
+              <QrCode className="size-5 shrink-0" aria-hidden="true" />
               رمز المطعم
-            </button>
+            </ActionButton>
             {showNav ? null : <HeaderButton onClick={onUnauthenticated}>تسجيل الخروج</HeaderButton>}
           </div>
         </div>
@@ -362,6 +364,7 @@ export function OwnerDashboard({ token, user, onUnauthenticated, onInactive }) {
         {visible === "menu" ? (
           <RestaurantMenu
             token={token}
+            previewHref={user.restaurant?.slug ? `/r/${encodeURIComponent(user.restaurant.slug)}` : ""}
             onUnauthenticated={onUnauthenticated}
             onInactive={onInactive}
             onFeatureUnavailable={() => setMenuOff(true)}

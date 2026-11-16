@@ -1,6 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Ban, Eye, EyeOff } from "lucide-react";
+import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { toast, Toaster } from "sonner";
+import { Badge } from "@/components/ui/badge";
 import { ConfirmDialog } from "@/components/admin/confirm-dialog";
 import { ActionButton } from "@/components/cashier/action-button";
 import { apiFetch } from "@/lib/api/client";
@@ -39,15 +43,6 @@ function PencilIcon() {
     <Glyph>
       <path d="M4 20h4L18.2 9.8a1.8 1.8 0 0 0 0-2.5L16.7 5.8a1.8 1.8 0 0 0-2.5 0L4 16v4Z" />
       <path d="m13.2 6.8 4 4" />
-    </Glyph>
-  );
-}
-
-function EyeIcon() {
-  return (
-    <Glyph>
-      <path d="M2.8 12S6.2 6.8 12 6.8 21.2 12 21.2 12 17.8 17.2 12 17.2 2.8 12 2.8 12Z" />
-      <circle cx="12" cy="12" r="2.4" />
     </Glyph>
   );
 }
@@ -116,7 +111,7 @@ function RowButton({ icon, children, tone = "default", ...props }) {
 }
 
 const headCell = "px-3 py-3 text-start text-xs font-bold text-burgundy-deep/70";
-const bodyCell = "px-3 py-2.5 align-middle";
+const bodyCell = "px-3 py-2 align-middle";
 
 function Pill({ on, onLabel, offLabel }) {
   return (
@@ -130,10 +125,201 @@ function Pill({ on, onLabel, offLabel }) {
   );
 }
 
-function Thumb({ src, label }) {
+function DotsIcon() {
+  return (
+    <Glyph>
+      <circle cx="6" cy="12" r="1" fill="currentColor" stroke="none" />
+      <circle cx="12" cy="12" r="1" fill="currentColor" stroke="none" />
+      <circle cx="18" cy="12" r="1" fill="currentColor" stroke="none" />
+    </Glyph>
+  );
+}
+
+function CustomerVisibilityButton({
+  visible,
+  disabled,
+  name,
+  onClick,
+  tone = "category",
+  activeText = "إخفاء عن الزبون",
+  inactiveText = "إظهار للزبون",
+  activeTitle,
+  inactiveTitle,
+}) {
+  const text = visible ? activeText : inactiveText;
+  const itemTone = tone === "item";
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      aria-pressed={visible}
+      title={visible ? activeTitle || `إخفاء ${name}` : inactiveTitle || `إظهار ${name}`}
+      onClick={onClick}
+      className={`inline-flex h-11 shrink-0 cursor-pointer items-center gap-2 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-40 ${
+        itemTone
+          ? visible
+            ? "rounded-xl bg-transparent px-2 text-gold-deep hover:bg-[color-mix(in_srgb,var(--color-gold)_12%,transparent)]"
+            : "rounded-xl bg-transparent px-2 text-muted-foreground hover:bg-muted"
+          : visible
+            ? "rounded-xl bg-transparent px-2 text-primary hover:bg-[color-mix(in_srgb,var(--color-primary)_8%,transparent)]"
+            : "rounded-xl bg-transparent px-2 text-muted-foreground hover:bg-muted"
+      }`}
+    >
+      {itemTone ? (
+        <Ban className="size-4 shrink-0" aria-hidden="true" />
+      ) : visible ? (
+        <Eye className="size-4 shrink-0" aria-hidden="true" />
+      ) : (
+        <EyeOff className="size-4 shrink-0" aria-hidden="true" />
+      )}
+      {text}
+    </button>
+  );
+}
+
+function placeMenu(trigger, menu) {
+  const rect = trigger.getBoundingClientRect();
+  const width = menu.offsetWidth;
+  const height = menu.offsetHeight;
+  const pad = 12;
+  const offset = 6;
+  const bounds = document.documentElement;
+  const viewWidth = bounds.clientWidth;
+  const viewHeight = window.innerHeight;
+  const below = rect.bottom + offset;
+  const above = rect.top - offset - height;
+  let top = below;
+  if (below + height > viewHeight - pad && above >= pad) {
+    top = above;
+  } else if (below + height > viewHeight - pad) {
+    top = Math.max(pad, viewHeight - pad - height);
+  }
+  let left = rect.right - width;
+  if (left < pad) {
+    left = pad;
+  }
+  if (left + width > viewWidth - pad) {
+    left = Math.max(pad, viewWidth - pad - width);
+  }
+  menu.style.top = `${top}px`;
+  menu.style.left = `${left}px`;
+  menu.style.right = "auto";
+}
+
+function RowMenu({ label, children }) {
+  const [open, setOpen] = useState(false);
+  const buttonRef = useRef(null);
+  const menuRef = useRef(null);
+
+  useLayoutEffect(() => {
+    if (!open) {
+      return undefined;
+    }
+    const trigger = buttonRef.current;
+    const menu = menuRef.current;
+    if (!trigger || !menu) {
+      return undefined;
+    }
+
+    function place() {
+      placeMenu(trigger, menu);
+    }
+    place();
+
+    window.addEventListener("resize", place);
+    window.addEventListener("scroll", place, true);
+    return () => {
+      window.removeEventListener("resize", place);
+      window.removeEventListener("scroll", place, true);
+    };
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) {
+      return undefined;
+    }
+    function onPointerDown(event) {
+      const target = event.target;
+      if (buttonRef.current?.contains(target) || menuRef.current?.contains(target)) {
+        return;
+      }
+      setOpen(false);
+    }
+    function onKeyDown(event) {
+      if (event.key === "Escape") {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open]);
+
+  return (
+    <>
+      <button
+        ref={buttonRef}
+        type="button"
+        aria-label={label}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        data-state={open ? "open" : "closed"}
+        onMouseDown={(event) => {
+          event.preventDefault();
+        }}
+        onClick={() => setOpen((current) => !current)}
+        className={`relative inline-flex size-9 cursor-pointer items-center justify-center rounded-xl border-0 bg-transparent text-foreground outline-none ring-0 before:absolute before:-inset-1 hover:bg-[color-mix(in_srgb,var(--color-primary)_8%,transparent)] data-[state=open]:bg-[color-mix(in_srgb,var(--color-primary)_8%,transparent)] data-[state=open]:ring-0 ${
+          open ? "" : "focus-visible:ring-2 focus-visible:ring-ring"
+        }`}
+      >
+        <DotsIcon />
+      </button>
+      {open
+        ? createPortal(
+            <div
+              ref={menuRef}
+              role="menu"
+              dir="rtl"
+              data-side="bottom"
+              data-align="start"
+              className="fixed z-50 min-w-44 rounded-xl bg-paper p-1 text-foreground shadow-[0_16px_40px_-24px_color-mix(in_srgb,var(--color-primary)_35%,transparent)] ring-1 ring-border"
+            >
+              {typeof children === "function" ? children(() => setOpen(false)) : children}
+            </div>,
+            document.body,
+          )
+        : null}
+    </>
+  );
+}
+
+function MenuItem({ destructive = false, disabled = false, title, onSelect, children }) {
+  return (
+    <button
+      type="button"
+      role="menuitem"
+      title={title}
+      disabled={disabled}
+      onClick={() => {
+        if (!disabled) {
+          onSelect();
+        }
+      }}
+      className={`flex min-h-11 w-full cursor-pointer items-center rounded-lg px-3 py-2 text-start text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-40 ${
+        destructive ? "text-destructive" : "text-foreground hover:bg-muted"
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
+function Thumb({ src, label, frame = "size-10 shrink-0 rounded-lg" }) {
   const [failedSrc, setFailedSrc] = useState("");
   const failed = Boolean(src) && failedSrc === src;
-  const frame = "size-10 shrink-0 rounded-lg";
 
   if (src && !failed) {
     return (
@@ -354,7 +540,445 @@ function ItemsDialog({ category, busy, onClose, onCreate, onEdit, onToggle, onMo
   );
 }
 
-export function RestaurantMenu({ token, onUnauthenticated, onInactive, onFeatureUnavailable }) {
+let dragSource = null;
+
+function GripIcon() {
+  return (
+    <Glyph>
+      <circle cx="9" cy="8" r="1" fill="currentColor" stroke="none" />
+      <circle cx="15" cy="8" r="1" fill="currentColor" stroke="none" />
+      <circle cx="9" cy="12" r="1" fill="currentColor" stroke="none" />
+      <circle cx="15" cy="12" r="1" fill="currentColor" stroke="none" />
+      <circle cx="9" cy="16" r="1" fill="currentColor" stroke="none" />
+      <circle cx="15" cy="16" r="1" fill="currentColor" stroke="none" />
+    </Glyph>
+  );
+}
+
+function DragHandle({ label, disabled, payload }) {
+  return (
+    <button
+      type="button"
+      draggable={!disabled}
+      aria-label={label}
+      title={label}
+      disabled={disabled}
+      onDragStart={(event) => {
+        dragSource = payload;
+        event.dataTransfer.effectAllowed = "move";
+        event.dataTransfer.setData("text/plain", payload.key);
+      }}
+      onDragEnd={() => {
+        dragSource = null;
+      }}
+      className="relative inline-flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-xl border-0 bg-transparent text-muted-foreground ring-0 before:absolute before:-inset-1 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:cursor-grabbing disabled:pointer-events-none disabled:opacity-40"
+    >
+      <GripIcon />
+    </button>
+  );
+}
+
+function dropReorder(event, payload, onStep) {
+  event.preventDefault();
+  const source = dragSource;
+  dragSource = null;
+  if (!source || source.list !== payload.list || source.index === payload.index) {
+    return;
+  }
+  onStep(source.index, source.index < payload.index ? "down" : "up");
+}
+
+const BannerCard = memo(function BannerCard({ banner, index, total, busy, fileKey, onToggle, onReplace, onMove, onDelete }) {
+  const fileRef = useRef(null);
+  const first = index <= 0;
+  const last = index >= total - 1;
+  return (
+    <li className={`min-w-0 rounded-2xl bg-paper ring-1 ring-border ${banner.is_active ? "" : "opacity-70"}`}>
+      <div className="overflow-hidden rounded-t-2xl">
+        {/* The address is an absolute API file. A missing image is 404. */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={banner.image_url} alt="" className="aspect-video w-full object-cover" />
+      </div>
+      <div className="flex items-center justify-between gap-2 px-3 py-2">
+        <CustomerVisibilityButton
+          visible={Boolean(banner.is_active)}
+          disabled={busy}
+          name="اللافتة"
+          onClick={onToggle}
+        />
+        <input
+          ref={fileRef}
+          key={fileKey}
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          onChange={onReplace}
+          className="sr-only"
+        />
+        <RowMenu label="إجراءات اللافتة">
+          {(close) => (
+            <>
+              <MenuItem
+                onSelect={() => {
+                  close();
+                  fileRef.current?.click();
+                }}
+              >
+                استبدال
+              </MenuItem>
+              <MenuItem
+                disabled={busy || first}
+                title={first ? "هذه اللافتة الأولى" : "تقديم"}
+                onSelect={() => {
+                  close();
+                  onMove("up");
+                }}
+              >
+                تقديم
+              </MenuItem>
+              <MenuItem
+                disabled={busy || last}
+                title={last ? "هذه اللافتة الأخيرة" : "تأخير"}
+                onSelect={() => {
+                  close();
+                  onMove("down");
+                }}
+              >
+                تأخير
+              </MenuItem>
+              <div className="my-1 h-px bg-border" role="separator" />
+              <MenuItem
+                destructive
+                onSelect={() => {
+                  close();
+                  onDelete();
+                }}
+              >
+                حذف
+              </MenuItem>
+            </>
+          )}
+        </RowMenu>
+      </div>
+    </li>
+  );
+});
+
+const CategoryRows = memo(function CategoryRows({
+  category,
+  items,
+  name,
+  open,
+  busy,
+  sourceIndex,
+  total,
+  reorderEnabled,
+  onToggleOpen,
+  onToggleActive,
+  onEdit,
+  onDelete,
+  onShowItems,
+  onCreateItem,
+  onEditItem,
+  onDeleteItem,
+  onToggleItem,
+  onMove,
+  onMoveItem,
+}) {
+  const [over, setOver] = useState(false);
+  const [overItemId, setOverItemId] = useState(null);
+  const first = sourceIndex <= 0;
+  const last = sourceIndex >= total - 1;
+  const itemsReady = Array.isArray(category.items);
+  const countLabel = itemCountLabel(items.length);
+  const countNumber = /^(\d+)/.exec(countLabel);
+  return (
+    <>
+      <li
+        className={`border-b border-border transition hover:bg-muted ${
+          category.is_active ? "" : "opacity-60"
+        } ${over ? "bg-primary/10" : ""}`}
+        onClick={(event) => {
+          if (event.target.closest("button, a, input, label, [role='menu']")) {
+            return;
+          }
+          onToggleOpen();
+        }}
+        onDragOver={(event) => {
+          if (!reorderEnabled || dragSource?.list !== "category") {
+            return;
+          }
+          event.preventDefault();
+          setOver(true);
+        }}
+        onDragLeave={() => setOver(false)}
+        onDrop={(event) => {
+          setOver(false);
+          if (!reorderEnabled) {
+            return;
+          }
+          dropReorder(event, { list: "category", index: sourceIndex }, onMove);
+        }}
+      >
+        <div className="flex items-center gap-2 px-3 py-2">
+            <DragHandle
+              label={`ترتيب ${name}`}
+              disabled={busy || !reorderEnabled}
+              payload={{ list: "category", index: sourceIndex, key: `category-${category.id}` }}
+            />
+            <button
+              type="button"
+              aria-expanded={open}
+              aria-controls={`category-items-${category.id}`}
+              aria-label={`${open ? "طي" : "فتح"} أصناف ${name}`}
+              onClick={onToggleOpen}
+              className="relative inline-flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-xl border-0 bg-transparent text-foreground ring-0 before:absolute before:-inset-1 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <ChevronDownIcon className={`transition duration-200 ${open ? "rotate-180" : ""}`} />
+            </button>
+            <Thumb src={category.icon_url} label={name} />
+            <div className="min-w-0 flex-1">
+              <p className="flex min-w-0 items-center gap-2">
+                <span className="truncate font-semibold text-burgundy-deep">{name}</span>
+                {category.is_active ? null : (
+                  <Badge className="shrink-0 bg-muted px-1.5 py-0 text-[11px] font-medium text-muted-foreground ring-0">
+                    مخفي
+                  </Badge>
+                )}
+              </p>
+              <p className="truncate text-xs text-muted-foreground">
+                {category.name?.en ? (
+                  <>
+                    <span dir="ltr" style={{ unicodeBidi: "isolate" }}>
+                      {category.name.en}
+                    </span>
+                    <span style={{ unicodeBidi: "isolate" }}> · </span>
+                  </>
+                ) : null}
+                <span dir="rtl" style={{ unicodeBidi: "isolate" }}>
+                  {countNumber ? (
+                    <>
+                      <span style={{ unicodeBidi: "isolate" }}>{countNumber[1]}</span>
+                      {countLabel.slice(countNumber[1].length)}
+                    </>
+                  ) : (
+                    countLabel
+                  )}
+                </span>
+              </p>
+            </div>
+          <CustomerVisibilityButton
+            visible={Boolean(category.is_active)}
+            disabled={busy}
+            name={name}
+            onClick={onToggleActive}
+          />
+            <RowMenu label={`إجراءات ${name}`}>
+              {(close) => (
+                <>
+                  <MenuItem
+                    onSelect={() => {
+                      close();
+                      onEdit();
+                    }}
+                  >
+                    تعديل
+                  </MenuItem>
+                  <MenuItem
+                    onSelect={() => {
+                      close();
+                      onShowItems();
+                    }}
+                  >
+                    عرض العناصر
+                  </MenuItem>
+                  <MenuItem
+                    disabled={busy}
+                    onSelect={() => {
+                      close();
+                      onCreateItem();
+                    }}
+                  >
+                    عنصر جديد
+                  </MenuItem>
+                  <MenuItem
+                    disabled={busy || !reorderEnabled || first}
+                    title={first ? "هذا التصنيف الأول" : "تقديم"}
+                    onSelect={() => {
+                      close();
+                      onMove(sourceIndex, "up");
+                    }}
+                  >
+                    تقديم
+                  </MenuItem>
+                  <MenuItem
+                    disabled={busy || !reorderEnabled || last}
+                    title={last ? "هذا التصنيف الأخير" : "تأخير"}
+                    onSelect={() => {
+                      close();
+                      onMove(sourceIndex, "down");
+                    }}
+                  >
+                    تأخير
+                  </MenuItem>
+                  <div className="my-1 h-px bg-border" role="separator" />
+                  <MenuItem
+                    destructive
+                    onSelect={() => {
+                      close();
+                      onDelete();
+                    }}
+                  >
+                    حذف
+                  </MenuItem>
+                </>
+              )}
+            </RowMenu>
+        </div>
+      {open ? (
+        <div id={`category-items-${category.id}`} className="py-2 ps-6 pe-3">
+            {!itemsReady ? (
+              <div className="flex flex-col gap-2" aria-hidden="true">
+                <div className="h-12 animate-pulse rounded-xl bg-muted" />
+                <div className="h-12 animate-pulse rounded-xl bg-muted" />
+              </div>
+            ) : items.length === 0 ? (
+              <p className="px-2 py-4 text-sm text-muted-foreground">لا عناصر في هذا التصنيف.</p>
+            ) : (
+              <ul className="flex flex-col border-s border-s-[color-mix(in_srgb,var(--color-primary)_30%,transparent)]">
+                {items.map((item, itemIndex) => {
+                  const itemFirst = itemIndex <= 0;
+                  const itemLast = itemIndex >= items.length - 1;
+                  const itemName = item.name?.ar || "";
+                  return (
+                    <li
+                      key={item.id}
+                      className={`flex cursor-pointer items-center gap-2 border-b border-border px-2 py-1.5 last:border-b-0 ${
+                        overItemId === item.id
+                          ? "bg-primary/10"
+                          : "bg-[color-mix(in_srgb,var(--color-primary)_4%,transparent)]"
+                      } ${item.is_available ? "" : "opacity-60"}`}
+                      onClick={(event) => {
+                        if (event.target.closest("button, a, input, label, [role='menu']")) {
+                          return;
+                        }
+                        onEditItem(item);
+                      }}
+                      onDragOver={(event) => {
+                        if (!reorderEnabled || dragSource?.list !== `item-${category.id}`) {
+                          return;
+                        }
+                        event.preventDefault();
+                        setOverItemId(item.id);
+                      }}
+                      onDragLeave={() => setOverItemId((current) => (current === item.id ? null : current))}
+                      onDrop={(event) => {
+                        setOverItemId(null);
+                        if (!reorderEnabled) {
+                          return;
+                        }
+                        dropReorder(event, { list: `item-${category.id}`, index: itemIndex }, onMoveItem);
+                      }}
+                    >
+                      <DragHandle
+                        label={`ترتيب ${itemName}`}
+                        disabled={busy || !reorderEnabled}
+                        payload={{ list: `item-${category.id}`, index: itemIndex, key: `item-${item.id}` }}
+                      />
+                      <Thumb src={item.photo_url} label={itemName} />
+                      <div className="min-w-0 flex-1">
+                        <p className="flex min-w-0 items-center gap-2">
+                          <span className="truncate font-semibold text-burgundy-deep">{itemName}</span>
+                          {item.is_available ? null : (
+                            <Badge className="shrink-0 bg-muted px-1.5 py-0 text-[11px] font-medium text-muted-foreground ring-0">
+                              مخفي
+                            </Badge>
+                          )}
+                        </p>
+                        {item.name?.en ? (
+                        <p dir="ltr" style={{ unicodeBidi: "isolate" }} className="truncate text-end text-xs text-muted-foreground">
+                          {item.name.en}
+                        </p>
+                        ) : null}
+                      </div>
+                      <CustomerVisibilityButton
+                        visible={Boolean(item.is_available)}
+                        disabled={busy}
+                        name={itemName}
+                        tone="item"
+                        activeText="إيقاف عن الزبون"
+                        inactiveText="إتاحة للزبون"
+                        activeTitle={`إيقاف ${itemName}`}
+                        inactiveTitle={`إتاحة ${itemName}`}
+                        onClick={() => onToggleItem(item)}
+                      />
+                      <RowMenu label={`إجراءات ${itemName}`}>
+                        {(close) => (
+                          <>
+                            <MenuItem
+                              onSelect={() => {
+                                close();
+                                onEditItem(item);
+                              }}
+                            >
+                              تعديل
+                            </MenuItem>
+                            <MenuItem
+                              disabled={busy || !reorderEnabled || itemFirst}
+                              title={itemFirst ? "هذا الصنف الأول" : "تقديم"}
+                              onSelect={() => {
+                                close();
+                                onMoveItem(itemIndex, "up");
+                              }}
+                            >
+                              تقديم
+                            </MenuItem>
+                            <MenuItem
+                              disabled={busy || !reorderEnabled || itemLast}
+                              title={itemLast ? "هذا الصنف الأخير" : "تأخير"}
+                              onSelect={() => {
+                                close();
+                                onMoveItem(itemIndex, "down");
+                              }}
+                            >
+                              تأخير
+                            </MenuItem>
+                            <div className="my-1 h-px bg-border" role="separator" />
+                            <MenuItem
+                              destructive
+                              onSelect={() => {
+                                close();
+                                onDeleteItem(item);
+                              }}
+                            >
+                              حذف
+                            </MenuItem>
+                          </>
+                        )}
+                      </RowMenu>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+            <div className="mt-1">
+              <button
+                type="button"
+                onClick={onCreateItem}
+                disabled={busy}
+                className="inline-flex h-11 cursor-pointer items-center gap-2 rounded-xl px-2 text-sm font-semibold text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-40"
+              >
+                <PlusIcon />
+                عنصر جديد
+              </button>
+            </div>
+        </div>
+      ) : null}
+      </li>
+    </>
+  );
+});
+
+export function RestaurantMenu({ token, onUnauthenticated, onInactive, onFeatureUnavailable, previewHref = "" }) {
   const [categories, setCategories] = useState([]);
   const [banners, setBanners] = useState([]);
   const [bannerFileKey, setBannerFileKey] = useState(0);
@@ -365,6 +989,9 @@ export function RestaurantMenu({ token, onUnauthenticated, onInactive, onFeature
   const [draft, setDraft] = useState(null);
   const [pendingDelete, setPendingDelete] = useState(null);
   const [itemsCategoryId, setItemsCategoryId] = useState(null);
+  const [openCategories, setOpenCategories] = useState(() => new Set());
+  const [query, setQuery] = useState("");
+  const [status, setStatus] = useState("all");
   const openId = useRef(0);
   const onUnauthenticatedRef = useRef(onUnauthenticated);
   const onInactiveRef = useRef(onInactive);
@@ -495,7 +1122,23 @@ export function RestaurantMenu({ token, onUnauthenticated, onInactive, onFeature
 
   async function patchRecord(kind, id, body) {
     if (busy) {
-      return;
+      return false;
+    }
+    const previous = categories;
+    if (kind === "category" && Object.prototype.hasOwnProperty.call(body, "is_active")) {
+      setCategories((current) =>
+        current.map((item) => (item.id === id ? { ...item, is_active: body.is_active } : item)),
+      );
+    }
+    if (kind === "item" && Object.prototype.hasOwnProperty.call(body, "is_available")) {
+      setCategories((current) =>
+        current.map((category) => ({
+          ...category,
+          items: (category.items || []).map((item) =>
+            item.id === id ? { ...item, is_available: body.is_available } : item,
+          ),
+        })),
+      );
     }
     const path = kind === "category" ? "categories" : "items";
     setBusy(true);
@@ -503,8 +1146,18 @@ export function RestaurantMenu({ token, onUnauthenticated, onInactive, onFeature
     try {
       await apiFetch(`/restaurant/menu/${path}/${id}`, { token, method: "PATCH", body });
       await refresh();
+      toast("تم تحديث الظهور.");
+      return true;
     } catch (requestError) {
-      handleFailure(requestError);
+      setCategories(previous);
+      const redirected = handleFailure(requestError);
+      if (!redirected) {
+        const text = menuErrorText(requestError);
+        if (text) {
+          toast(text);
+        }
+      }
+      return false;
     } finally {
       setBusy(false);
     }
@@ -617,15 +1270,31 @@ export function RestaurantMenu({ token, onUnauthenticated, onInactive, onFeature
 
   async function patchBanner(banner, body) {
     if (busy) {
-      return;
+      return false;
+    }
+    const previous = banners;
+    if (Object.prototype.hasOwnProperty.call(body, "is_active")) {
+      setBanners((current) => current.map((item) => (item.id === banner.id ? { ...item, is_active: body.is_active } : item)));
     }
     setBusy(true);
     setError("");
     try {
       await apiFetch(`/restaurant/banners/${banner.id}`, { token, method: "PATCH", body });
       await refresh();
+      if (Object.prototype.hasOwnProperty.call(body, "is_active")) {
+        toast("تم تحديث الظهور.");
+      }
+      return true;
     } catch (requestError) {
-      handleFailure(requestError);
+      setBanners(previous);
+      const redirected = handleFailure(requestError);
+      if (!redirected) {
+        const text = menuErrorText(requestError);
+        if (text) {
+          toast(text);
+        }
+      }
+      return false;
     } finally {
       setBusy(false);
     }
@@ -710,16 +1379,46 @@ export function RestaurantMenu({ token, onUnauthenticated, onInactive, onFeature
 
   const deleteName = pendingDelete?.record?.name?.ar || "";
   const itemsCategory = categories.find((category) => category.id === itemsCategoryId) || null;
+  const needle = query.trim().toLowerCase();
+  const shownCategories = categories.filter((category) => {
+    if (status === "visible" && !category.is_active) {
+      return false;
+    }
+    if (status === "hidden" && category.is_active) {
+      return false;
+    }
+    if (!needle) {
+      return true;
+    }
+    const names = [
+      category.name?.ar,
+      category.name?.en,
+      ...(Array.isArray(category.items) ? category.items.flatMap((item) => [item.name?.ar, item.name?.en]) : []),
+    ];
+    return names.some((value) => String(value || "").toLowerCase().includes(needle));
+  });
+  const reorderEnabled = needle.length === 0 && status === "all";
 
   return (
     <section className="flex flex-col gap-4">
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
+        <div className="min-w-0">
           <h2 className="font-display text-2xl font-semibold text-burgundy-deep sm:text-3xl">القائمة</h2>
           <p className="mt-1 max-w-xl text-sm leading-6 text-ink/55">
             التصنيفات والأصناف التي تظهر للزبون. السعر للعرض فقط.
           </p>
         </div>
+        {previewHref ? (
+          <a
+            href={previewHref}
+            target="_blank"
+            rel="noreferrer"
+            className="ms-auto inline-flex h-11 cursor-pointer items-center justify-center gap-2 rounded-2xl border border-border bg-transparent px-4 text-sm font-semibold text-foreground hover:bg-[color-mix(in_srgb,var(--color-primary)_8%,transparent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <Eye className="size-4 shrink-0" aria-hidden="true" />
+            معاينة الزبون
+          </a>
+        ) : null}
       </div>
 
       {notice ? (
@@ -756,53 +1455,28 @@ export function RestaurantMenu({ token, onUnauthenticated, onInactive, onFeature
           </label>
         </div>
         {!loaded ? (
-          <p className="px-4 py-8 text-sm font-medium text-ink/50">يتم تحميل اللافتات.</p>
+          <div className="grid grid-cols-1 gap-3 p-4 md:grid-cols-2 xl:grid-cols-3">
+            <p className="sr-only">يتم تحميل اللافتات.</p>
+            <div className="h-40 animate-pulse rounded-2xl bg-muted" />
+            <div className="h-40 animate-pulse rounded-2xl bg-muted" />
+          </div>
         ) : banners.length === 0 ? (
           <p className="px-4 py-8 text-sm text-ink/50">لا لافتات بعد. الصورة JPEG أو PNG أو WebP، حتى 1 ميغابايت.</p>
         ) : (
-          <ul>
+          <ul className="grid grid-cols-1 gap-3 p-4 md:grid-cols-2 xl:grid-cols-3">
             {banners.map((banner, index) => (
-              <li
+              <BannerCard
                 key={banner.id}
-                className={`flex flex-wrap items-center justify-between gap-3 border-b border-burgundy/5 px-4 py-3 last:border-0 ${
-                  banner.is_active ? "" : "opacity-70"
-                }`}
-              >
-                <div className="flex min-w-0 items-center gap-3">
-                  {/* The address is an absolute API file. A missing image is 404. */}
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={banner.image_url}
-                    alt=""
-                    className="h-16 w-28 shrink-0 rounded-xl object-cover ring-1 ring-burgundy/10"
-                  />
-                  <Pill on={banner.is_active} onLabel="ظاهرة" offLabel="مخفية" />
-                </div>
-                <div className="flex flex-wrap items-center justify-end gap-2">
-                  <label className={`inline-flex h-9 items-center rounded-xl px-3 text-sm font-semibold text-burgundy ${busy ? "pointer-events-none opacity-40" : "cursor-pointer"}`}>
-                    <input
-                      key={`${bannerFileKey}-${banner.id}`}
-                      type="file"
-                      accept="image/jpeg,image/png,image/webp"
-                      onChange={(event) => replaceBanner(banner, event)}
-                      className="sr-only"
-                    />
-                    استبدال
-                  </label>
-                  <RowButton icon={banner.is_active ? <BanIcon /> : <CheckIcon />} disabled={busy} onClick={() => patchBanner(banner, { is_active: !banner.is_active })}>
-                    {banner.is_active ? "إخفاء" : "إظهار"}
-                  </RowButton>
-                  <RowButton icon={<ChevronUpIcon />} disabled={busy || index === 0} onClick={() => moveBanner(index, "up")}>
-                    تقديم
-                  </RowButton>
-                  <RowButton icon={<ChevronDownIcon />} disabled={busy || index === banners.length - 1} onClick={() => moveBanner(index, "down")}>
-                    تأخير
-                  </RowButton>
-                  <RowButton icon={<TrashIcon />} tone="danger" disabled={busy} onClick={() => requestDelete("banner", banner)}>
-                    حذف
-                  </RowButton>
-                </div>
-              </li>
+                banner={banner}
+                index={index}
+                total={banners.length}
+                busy={busy}
+                fileKey={bannerFileKey}
+                onToggle={() => patchBanner(banner, { is_active: !banner.is_active })}
+                onReplace={(event) => replaceBanner(banner, event)}
+                onMove={(direction) => moveBanner(index, direction)}
+                onDelete={() => requestDelete("banner", banner)}
+              />
             ))}
           </ul>
         )}
@@ -824,94 +1498,101 @@ export function RestaurantMenu({ token, onUnauthenticated, onInactive, onFeature
           </ActionButton>
         </div>
 
+        <div className="flex flex-col gap-2 border-b border-burgundy/10 px-4 py-3 sm:flex-row sm:items-center">
+          <label htmlFor="menu-search" className="sr-only">
+            بحث
+          </label>
+          <input
+            id="menu-search"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="بحث في الأسماء"
+            className="h-11 min-w-0 flex-1 rounded-xl border border-border bg-background px-3 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          />
+          <div className="flex gap-1">
+            {[
+              ["all", "الكل"],
+              ["visible", "ظاهر"],
+              ["hidden", "مخفي"],
+            ].map(([id, label]) => (
+              <button
+                key={id}
+                type="button"
+                aria-pressed={status === id}
+                onClick={() => setStatus(id)}
+                className={`inline-flex h-11 cursor-pointer items-center rounded-xl px-3 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                  status === id ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+
         {!loaded ? (
-          <p className="px-4 py-8 text-sm font-medium text-ink/50">يتم تحميل القائمة.</p>
+          <div className="flex flex-col gap-2 px-4 py-4">
+            <p className="text-sm font-medium text-ink/50">يتم تحميل القائمة.</p>
+            <div className="h-12 animate-pulse rounded-xl bg-muted" />
+            <div className="h-12 animate-pulse rounded-xl bg-muted" />
+            <div className="h-12 animate-pulse rounded-xl bg-muted" />
+          </div>
         ) : categories.length === 0 ? (
           <div className="px-4 py-12 text-center">
             <p className="font-display text-xl font-semibold text-burgundy-deep">لا توجد تصنيفات بعد</p>
             <p className="mt-2 text-sm text-ink/50">أضيفوا أول تصنيف ليظهر في قائمة الزبون.</p>
+            <div className="mt-4 flex justify-center">
+              <ActionButton onClick={openCategoryCreate} disabled={busy}>
+                <PlusIcon />
+                إضافة تصنيف
+              </ActionButton>
+            </div>
           </div>
+        ) : shownCategories.length === 0 ? (
+          <p className="px-4 py-10 text-center text-sm font-medium text-muted-foreground">لا نتائج مطابقة.</p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[720px] border-collapse">
-              <thead className="bg-wash">
-                <tr className="border-b border-burgundy/10">
-                  <th className={headCell}>التصنيف</th>
-                  <th className={headCell}>الحالة</th>
-                  <th className={headCell}>العناصر</th>
-                  <th className={headCell}>إجراءات</th>
-                </tr>
-              </thead>
-              <tbody>
-                {categories.map((category) => {
+          <ul>
+                {shownCategories.map((category) => {
                   const items = Array.isArray(category.items) ? category.items : [];
+                  const open = openCategories.has(category.id);
+                  const name = category.name?.ar || "";
+                  const sourceIndex = categories.findIndex((item) => item.id === category.id);
                   return (
-                    <tr
+                    <CategoryRows
                       key={category.id}
-                      className={`border-b border-burgundy/5 transition hover:bg-[#faf7f2] ${
-                        category.is_active ? "" : "opacity-70"
-                      }`}
-                    >
-                      <td className={bodyCell}>
-                        <div className="flex items-center gap-3">
-                          <Thumb src={category.icon_url} label={category.name?.ar} />
-                          <div className="min-w-0">
-                            <p className="truncate font-semibold text-burgundy-deep">{category.name?.ar}</p>
-                            {category.name?.en ? (
-                              <p dir="ltr" className="truncate text-end text-xs text-ink/45">
-                                {category.name.en}
-                              </p>
-                            ) : null}
-                          </div>
-                        </div>
-                      </td>
-                      <td className={bodyCell}>
-                        <Pill on={category.is_active} onLabel="ظاهر" offLabel="مخفي" />
-                      </td>
-                      <td className={`${bodyCell} text-sm text-ink/60`}>{itemCountLabel(items.length)}</td>
-                      <td className={bodyCell}>
-                        <div className="flex flex-wrap items-center justify-end gap-2">
-                          <RowButton
-                            icon={<PencilIcon />}
-                            disabled={busy}
-                            onClick={() =>
-                              openDraft({ kind: "category", record: category, form: categoryForm(category) })
-                            }
-                          >
-                            تعديل
-                          </RowButton>
-                          <RowButton
-                            icon={<TrashIcon />}
-                            tone="danger"
-                            disabled={busy}
-                            onClick={() => requestDelete("category", category)}
-                          >
-                            حذف
-                          </RowButton>
-                          <RowButton
-                            icon={<EyeIcon />}
-                            tone="quiet"
-                            disabled={busy}
-                            onClick={() => setItemsCategoryId(category.id)}
-                          >
-                            عرض العناصر
-                          </RowButton>
-                          <RowButton
-                            icon={<PlusIcon />}
-                            tone="quiet"
-                            disabled={busy}
-                            onClick={() => openItemCreate(category)}
-                          >
-                            عنصر جديد
-                          </RowButton>
-                        </div>
-                      </td>
-                    </tr>
+                      category={category}
+                      items={items}
+                      name={name}
+                      open={open}
+                      busy={busy}
+                      sourceIndex={sourceIndex}
+                      total={categories.length}
+                      reorderEnabled={reorderEnabled}
+                      onMove={(index, direction) => moveRecord("category", categories, index, direction)}
+                      onToggleOpen={() => {
+                        setOpenCategories((current) => {
+                          const next = new Set(current);
+                          if (next.has(category.id)) {
+                            next.delete(category.id);
+                          } else {
+                            next.add(category.id);
+                          }
+                          return next;
+                        });
+                      }}
+                      onToggleActive={() => patchRecord("category", category.id, { is_active: !category.is_active })}
+                      onEdit={() => openDraft({ kind: "category", record: category, form: categoryForm(category) })}
+                      onDelete={() => requestDelete("category", category)}
+                      onShowItems={() => setItemsCategoryId(category.id)}
+                      onCreateItem={() => openItemCreate(category)}
+                      onEditItem={(item) => openDraft({ kind: "item", record: item, form: itemForm(item) })}
+                      onDeleteItem={(item) => requestDelete("item", item)}
+                      onToggleItem={(item) => patchRecord("item", item.id, { is_available: !item.is_available })}
+                      onMoveItem={(index, direction) => moveRecord("item", items, index, direction)}
+                    />
                   );
                 })}
-              </tbody>
-            </table>
-          </div>
+          </ul>
         )}
       </div>
 
@@ -950,10 +1631,11 @@ export function RestaurantMenu({ token, onUnauthenticated, onInactive, onFeature
           pendingDelete?.kind === "banner"
             ? "هل تريدون حذف هذه اللافتة؟"
             : pendingDelete?.kind === "category"
-              ? `هل تريدون حذف «${deleteName}»؟ التصنيف الذي ما زال فيه أصناف لا يُحذف.`
+              ? `سيتم حذف التصنيف «${deleteName}» مع ${itemCountLabel(pendingDelete.record.items?.length || 0)}. التصنيف الذي ما زال فيه أصناف لا يُحذف.`
               : `هل تريدون حذف «${deleteName}» من القائمة؟`
         }
         confirmLabel="حذف"
+        tone="destructive"
         pending={busy}
         onConfirm={confirmDelete}
         onDismiss={() => {
@@ -962,6 +1644,7 @@ export function RestaurantMenu({ token, onUnauthenticated, onInactive, onFeature
           }
         }}
       />
+      <Toaster dir="rtl" position="bottom-center" />
     </section>
   );
 }

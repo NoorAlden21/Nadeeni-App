@@ -16,28 +16,46 @@ export function SideNav({ value, onChange, options }) {
     return null;
   }
 
+  const groups = [];
+  for (const option of options) {
+    const label = option.group || "";
+    const last = groups[groups.length - 1];
+    if (!last || last.label !== label) {
+      groups.push({ label, items: [option] });
+    } else {
+      last.items.push(option);
+    }
+  }
+
   return (
-    <nav aria-label="أقسام اللوحة" className="flex flex-col gap-1">
-      {options.map((option) => {
-        const selected = option.id === value;
-        const Icon = sideIcons[option.id];
-        return (
-          <button
-            key={option.id}
-            type="button"
-            aria-current={selected ? "page" : undefined}
-            onClick={() => onChange(option.id)}
-            className={`inline-flex h-12 w-full cursor-pointer items-center gap-3 rounded-xl border-s-[3px] px-3 text-base font-semibold transition duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold ${
-              selected
-                ? "border-s-gold bg-foam text-burgundy"
-                : "border-s-transparent text-ink/60 hover:bg-foam hover:text-burgundy"
-            }`}
-          >
-            {Icon ? <Icon className="size-5 shrink-0" aria-hidden="true" /> : null}
-            {option.label}
-          </button>
-        );
-      })}
+    <nav aria-label="أقسام اللوحة" className="flex flex-col gap-3">
+      {groups.map((group) => (
+        <div key={group.label || "nav"} className="flex flex-col gap-1">
+          {group.label ? (
+            <p className="px-3 pt-1 text-xs font-semibold text-muted-foreground">{group.label}</p>
+          ) : null}
+          {group.items.map((option) => {
+            const selected = option.id === value;
+            const Icon = sideIcons[option.id];
+            return (
+              <button
+                key={option.id}
+                type="button"
+                aria-current={selected ? "page" : undefined}
+                onClick={() => onChange(option.id)}
+                className={`inline-flex h-12 w-full cursor-pointer items-center gap-3 rounded-xl border-s-2 px-3 text-base font-semibold transition duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                  selected
+                    ? "border-s-primary bg-[color-mix(in_srgb,var(--color-primary)_12%,transparent)] text-foreground"
+                    : "border-s-transparent bg-transparent text-muted-foreground [@media(hover:hover)]:hover:bg-[color-mix(in_srgb,var(--color-primary)_6%,transparent)] [@media(hover:hover)]:hover:text-foreground"
+                }`}
+              >
+                {Icon ? <Icon className="size-5 shrink-0" aria-hidden="true" /> : null}
+                {option.label}
+              </button>
+            );
+          })}
+        </div>
+      ))}
     </nav>
   );
 }

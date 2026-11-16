@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react";
 import { ActionButton } from "@/components/cashier/action-button";
 
-export function ConfirmDialog({ open, title, body, confirmLabel, pending, onConfirm, onDismiss, titleId }) {
+export function ConfirmDialog({ open, title, body, confirmLabel, pending, onConfirm, onDismiss, titleId, tone = "primary" }) {
   const dialogRef = useRef(null);
 
   useEffect(() => {
@@ -28,6 +28,7 @@ export function ConfirmDialog({ open, title, body, confirmLabel, pending, onConf
   return (
     <dialog
       ref={dialogRef}
+      role={tone === "destructive" ? "alertdialog" : undefined}
       aria-labelledby={titleId}
       onClose={onDismiss}
       onCancel={(event) => {
@@ -52,9 +53,20 @@ export function ConfirmDialog({ open, title, body, confirmLabel, pending, onConf
         >
           تراجع
         </button>
-        <ActionButton onClick={onConfirm} disabled={pending} className="min-w-28">
-          {confirmLabel}
-        </ActionButton>
+        {tone === "destructive" ? (
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={pending}
+            className="inline-flex h-11 min-w-28 cursor-pointer items-center justify-center rounded-2xl bg-destructive px-4 text-sm font-semibold text-destructive-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-40"
+          >
+            {confirmLabel}
+          </button>
+        ) : (
+          <ActionButton onClick={onConfirm} disabled={pending} className="min-w-28">
+            {confirmLabel}
+          </ActionButton>
+        )}
       </div>
     </dialog>
   );
