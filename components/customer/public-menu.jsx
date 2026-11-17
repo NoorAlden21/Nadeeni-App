@@ -24,17 +24,29 @@ function useAsset(src) {
   };
 }
 
+function PhotoFrame({ ratio = "4/3", className = "", children }) {
+  const pad = ratio === "5/4" ? "pt-[80%]" : "pt-[75%]";
+  return (
+    <span className={`relative block w-full shrink-0 overflow-hidden ${className}`}>
+      {/* iOS drops aspect-ratio on a flex card when the photo is taken out of flow. */}
+      <span className={`block ${pad}`} aria-hidden="true" />
+      {children}
+    </span>
+  );
+}
+
 function RoundPhoto({ src, label, className, fit = "cover", sizes, priority = false, quality = 60 }) {
   const asset = useAsset(src);
   if (asset.visible) {
     return (
-      <span className={`relative block overflow-hidden ${className}`}>
+      <span className={`block h-full w-full overflow-hidden ${className}`}>
         <OptimizedImage
           src={asset.resolved}
           alt=""
           fill
           sizes={sizes}
           priority={priority}
+          eager
           quality={quality}
           onError={asset.fail}
           className={fit === "contain" ? "object-contain" : "object-cover"}
@@ -102,14 +114,13 @@ function BannerPhoto({ src, priority = false }) {
   }
 
   return (
-    <span className="relative block aspect-[16/9] w-full sm:aspect-[2.2/1]">
+    <span className="relative block aspect-[16/9] w-full shrink-0 overflow-hidden sm:aspect-[2.2/1]">
       <OptimizedImage
         src={asset.resolved}
         alt=""
         fill
         sizes="(max-width: 639px) calc(100vw - 2rem), (max-width: 1023px) calc(100vw - 4rem), 960px"
         priority={priority}
-        blur
         onError={asset.fail}
         className="object-cover"
       />
@@ -290,16 +301,16 @@ function ItemDialog({ item, onClose, lang }) {
         overlayClassName="bg-black/40"
         className="max-h-[min(40rem,calc(100dvh-2rem))] gap-0 overflow-y-auto bg-white p-0 font-detail"
       >
-        <div className="relative bg-soft">
+        <PhotoFrame className="bg-soft">
           <RoundPhoto
             src={item.photoUrl}
             label={itemName}
             sizes="(max-width: 640px) calc(100vw - 2rem), 32rem"
             quality={75}
-            className="aspect-[4/3] w-full text-5xl"
+            className="absolute inset-0 text-5xl"
           />
           <ItemBadge badge={item.badge} lang={lang} />
-        </div>
+        </PhotoFrame>
         <div className="px-5 pt-5 pb-6">
           <DialogHeader className="items-stretch gap-2 text-start">
             <DialogTitle className="text-start font-detail text-2xl leading-8 font-bold text-burgundy">
@@ -583,10 +594,10 @@ function MenuItemCard({ item, layout, onOpen, lang, index = 0, priority = false 
           {...motionProps}
           className="flex h-full w-full cursor-pointer flex-col overflow-hidden rounded-[1.25rem] border border-black/[0.06] bg-white text-start shadow-[0_4px_16px_rgba(42,16,22,0.06)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
         >
-          <span className="relative block bg-soft">
-            <RoundPhoto src={item.photoUrl} label={itemName} sizes={photoSizes} priority={priority} className="aspect-[4/3] w-full text-5xl" />
+          <PhotoFrame className="bg-soft">
+            <RoundPhoto src={item.photoUrl} label={itemName} sizes={photoSizes} priority={priority} className="absolute inset-0 text-5xl" />
             <ItemBadge badge={item.badge} lang={lang} />
-          </span>
+          </PhotoFrame>
           <span className="flex flex-1 flex-col gap-2.5 px-[1.125rem] pt-4 pb-[1.125rem]">
             <span className="flex items-start justify-between gap-3">
               <span className="line-clamp-2 min-w-0 flex-1 font-detail text-[18px] leading-[1.45] font-extrabold text-ink">{itemName}</span>
@@ -609,10 +620,10 @@ function MenuItemCard({ item, layout, onOpen, lang, index = 0, priority = false 
           {...motionProps}
           className="flex h-full w-full cursor-pointer flex-col rounded-[1.35rem] bg-white p-2 text-start shadow-[0_14px_32px_-20px_rgba(42,16,22,0.4)] ring-1 ring-black/[0.04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
         >
-          <span className="relative block overflow-hidden rounded-[1.05rem]">
-            <RoundPhoto src={item.photoUrl} label={localized(item.name, lang)} sizes={photoSizes} priority={priority} className="aspect-[5/4] w-full text-3xl" />
+          <PhotoFrame ratio="5/4" className="rounded-[1.05rem]">
+            <RoundPhoto src={item.photoUrl} label={localized(item.name, lang)} sizes={photoSizes} priority={priority} className="absolute inset-0 text-3xl" />
             <ItemBadge badge={item.badge} lang={lang} />
-          </span>
+          </PhotoFrame>
           <span className="flex flex-1 flex-col items-center px-1.5 pt-3 pb-1.5 text-center">
             <span className="line-clamp-2 w-full text-center font-detail text-[15px] leading-6 font-semibold text-ink">{localized(item.name, lang)}</span>
             {price ? (
