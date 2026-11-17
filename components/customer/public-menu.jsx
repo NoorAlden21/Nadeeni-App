@@ -185,6 +185,34 @@ function CloseIcon() {
   );
 }
 
+function easeOutCubic(progress) {
+  return 1 - (1 - progress) ** 3;
+}
+
+function categoryAnchor(root) {
+  const raw = getComputedStyle(root).getPropertyValue("--menu-anchor");
+  const parsed = Number.parseFloat(raw);
+  return (Number.isFinite(parsed) ? parsed : 0) + 12;
+}
+
+function sheetContentHeight(sheet) {
+  let total = 0;
+  for (const child of sheet.children) {
+    const style = getComputedStyle(child);
+    total += child.getBoundingClientRect().height + (Number.parseFloat(style.marginTop) || 0) + (Number.parseFloat(style.marginBottom) || 0);
+  }
+  return total;
+}
+
+function categoryScrollGoal(sheet, anchor) {
+  const section = sheet.querySelector("[data-menu-section]");
+  const slack = Math.max(0, sheet.getBoundingClientRect().height - sheetContentHeight(sheet));
+  const futureMax = Math.max(0, document.documentElement.scrollHeight - slack - window.innerHeight);
+  if (!section) return { goal: Math.min(window.scrollY, futureMax), futureMax };
+  const heading = Math.max(0, window.scrollY + section.getBoundingClientRect().top - anchor);
+  return { goal: Math.min(heading, futureMax), futureMax };
+}
+
 function foldText(value) {
   return String(value || "")
     .trim()
@@ -567,7 +595,7 @@ function CategoryStrip({ categories, active, onChoose, stripRef, lang }) {
   );
 }
 
-function MenuItemCard({ item, layout, onOpen, lang, index = 0, priority = false }) {
+function MenuItemCard({ item, layout, onOpen, lang, index = 0, priority = false, enter = true }) {
   const reduce = useReducedMotion();
   const price = item.price === null ? "" : formatPrice(item.price);
   const itemName = localized(item.name, lang);
@@ -577,12 +605,10 @@ function MenuItemCard({ item, layout, onOpen, lang, index = 0, priority = false 
       : "(max-width: 639px) calc(50vw - 1.25rem), (max-width: 1023px) calc(33vw - 1.5rem), 240px";
   const descriptionText = localized(item.description, lang);
   const description = descriptionText && descriptionText.trim() !== itemName.trim() ? descriptionText : "";
-  const enter = reduce ? false : { y: 16, opacity: 0 };
-  const settle = { y: 0, opacity: 1 };
   const motionProps = {
-    initial: enter,
-    animate: settle,
-    transition: { duration: 0.4, delay: Math.min(index, 6) * 0.07, ease: "easeOut" },
+    initial: enter && !reduce ? { y: 16, opacity: 0 } : false,
+    animate: { y: 0, opacity: 1 },
+    transition: { duration: 0.4, delay: enter ? Math.min(index, 6) * 0.07 : 0, ease: "easeOut" },
     whileTap: reduce ? undefined : { scale: 0.98 },
   };
   return (
@@ -656,13 +682,21 @@ export function PublicMenu({ name, nameEn = "", iconUrl, contact = null, banners
   const visible = visibleCategories(boarded, query);
   const cards = menuCards(visible);
   const shown = visible.some((item) => item.sourceIndex === active) ? active : (visible[0]?.sourceIndex ?? active);
-  const currentGroup = visible.find((group) => group.sourceIndex === shown) ?? visible[0];
-  const currentCards = currentGroup ? cards.filter((item) => item.sourceIndex === currentGroup.sourceIndex) : [];
+  const [rendered, setRendered] = useState(0);
+  const [hasSwitched, setHasSwitched] = useState(false);
+  const [sheetMinHeight, setSheetMinHeight] = useState(0);
+  const bodyIndex = visible.some((item) => item.sourceIndex === rendered) ? rendered : shown;
+  const bodyGroup = visible.find((group) => group.sourceIndex === bodyIndex) ?? null;
+  const bodyCards = bodyGroup ? cards.filter((item) => item.sourceIndex === bodyGroup.sourceIndex) : [];
   const menuRef = useRef(null);
   const barRef = useRef(null);
   const stripRef = useRef(null);
   const sheetRef = useRef(null);
-  const scrollCategory = useRef(false);
+  const renderedRef = useRef(0);
+  const sheetMinRef = useRef(0);
+  const holdToken = useRef(0);
+  const glideToken = useRef(0);
+  const releaseTimer = useRef(0);
   const title = boardTitle(board, lang);
   const sectionKey = visible.map((item) => `${item.sourceIndex}:${item.items.length}`).join("|");
   const itemGridClass =
@@ -692,11 +726,121 @@ export function PublicMenu({ name, nameEn = "", iconUrl, contact = null, banners
   }, [sectionKey, loading, visible.length, banners.length]);
 
   useEffect(() => {
-    if (!scrollCategory.current) return;
-    scrollCategory.current = false;
-    const section = sheetRef.current?.querySelector(`[data-menu-section="${shown}"]`);
-    if (!section) return;
-    section.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "start" });
+    renderedRef.current = rendered;
+  }, [rendered]);
+
+  useEffect(() => {
+    if (renderedRef.current === shown) return undefined;
+    const live = shown;
+    const token = ++holdToken.current;
+    const glide = ++glideToken.current;
+    const sheet = sheetRef.current;
+    const root = menuRef.current;
+    let frame = 0;
+    let tries = 0;
+
+    const release = () => {
+      if (holdToken.current !== token) return;
+      const node = sheetRef.current;
+      const section = node?.querySelector(`[data-menu-section="${live}"]`);
+      if ((!node || !section) && tries < 8) {
+        tries += 1;
+        frame = window.requestAnimationFrame(release);
+        return;
+      }
+      const anchor = root ? categoryAnchor(root) : 0;
+      const futureMax = node ? categoryScrollGoal(node, anchor).futureMax : window.scrollY;
+      if (window.scrollY > futureMax + 2) {
+        const from = window.scrollY;
+        const started = performance.now();
+        const close = (now) => {
+          if (holdToken.current !== token) return;
+          const progress = Math.min(1, (now - started) / 240);
+          window.scrollTo(0, from + (futureMax - from) * easeOutCubic(progress));
+          if (progress < 1) {
+            frame = window.requestAnimationFrame(close);
+            return;
+          }
+          sheetMinRef.current = 0;
+          setSheetMinHeight(0);
+        };
+        frame = window.requestAnimationFrame(close);
+        return;
+      }
+      sheetMinRef.current = 0;
+      setSheetMinHeight(0);
+    };
+
+    const showNext = () => {
+      if (glideToken.current !== glide) return;
+      renderedRef.current = live;
+      setRendered(live);
+      setHasSwitched(true);
+    };
+
+    if (!sheet || !root) {
+      showNext();
+      return undefined;
+    }
+
+    const locked = Math.ceil(Math.max(sheet.getBoundingClientRect().height, sheetMinRef.current));
+    sheetMinRef.current = locked;
+    setSheetMinHeight(locked);
+
+    const anchor = categoryAnchor(root);
+    const initial = categoryScrollGoal(sheet, anchor);
+    if (reduceMotion || Math.abs(window.scrollY - initial.goal) < 8) {
+      if (Math.abs(window.scrollY - initial.goal) >= 1) window.scrollTo(0, initial.goal);
+      showNext();
+      frame = window.requestAnimationFrame(() => window.requestAnimationFrame(release));
+      return () => {
+        window.cancelAnimationFrame(frame);
+      };
+    }
+
+    const began = performance.now();
+    const duration = Math.min(820, Math.max(420, Math.abs(initial.goal - window.scrollY) * 0.5));
+    const run = {
+      start: window.scrollY,
+      goal: initial.goal,
+      began,
+      duration,
+      swapped: false,
+    };
+
+    const step = (now) => {
+      if (glideToken.current !== glide) return;
+      const progress = Math.min(1, (now - run.began) / run.duration);
+      const eased = easeOutCubic(progress);
+      window.scrollTo(0, run.start + (run.goal - run.start) * eased);
+      if (!run.swapped && eased >= 0.62) {
+        run.swapped = true;
+        showNext();
+        frame = window.requestAnimationFrame(() => {
+          if (glideToken.current !== glide) return;
+          const node = sheetRef.current;
+          if (!node) return;
+          const next = categoryScrollGoal(node, categoryAnchor(root));
+          if (Math.abs(next.goal - run.goal) > 2) {
+            run.start = window.scrollY;
+            run.goal = next.goal;
+            run.began = performance.now();
+            run.duration = Math.max(220, duration - (performance.now() - began));
+          }
+        });
+      }
+      if (progress < 1) {
+        frame = window.requestAnimationFrame(step);
+        return;
+      }
+      if (!run.swapped) showNext();
+      frame = window.requestAnimationFrame(() => window.requestAnimationFrame(release));
+    };
+
+    frame = window.requestAnimationFrame(step);
+    return () => {
+      window.cancelAnimationFrame(frame);
+    };
   }, [shown, reduceMotion]);
 
   useEffect(() => {
@@ -723,15 +867,24 @@ export function PublicMenu({ name, nameEn = "", iconUrl, contact = null, banners
   }
 
   function chooseCategory(itemIndex) {
-    scrollCategory.current = true;
-    setActive(itemIndex);
     setFiltersOpen(false);
+    if (itemIndex === shown) return;
+    glideToken.current += 1;
+    setActive(itemIndex);
   }
 
   function chooseBoard(next) {
     const nextVisible = visibleCategories(categoriesForBoard(categories, next), query);
+    const nextIndex = nextVisible[0]?.sourceIndex ?? 0;
+    glideToken.current += 1;
+    holdToken.current += 1;
+    window.clearTimeout(releaseTimer.current);
+    sheetMinRef.current = 0;
+    setSheetMinHeight(0);
     setBoard(next);
-    setActive(nextVisible[0]?.sourceIndex ?? 0);
+    setActive(nextIndex);
+    setRendered(nextIndex);
+    setHasSwitched(true);
     setPickerOpen(false);
     window.scrollTo(0, 0);
   }
@@ -855,41 +1008,46 @@ export function PublicMenu({ name, nameEn = "", iconUrl, contact = null, banners
       {loading ? (
         <p className="mt-16 text-center text-base font-semibold text-burgundy-deep">{phrase("menuLoading", lang)}</p>
       ) : cards.length > 0 ? (
-        <div ref={sheetRef} className="mt-4 sm:mt-6">
+        <div ref={sheetRef} className="mt-4 sm:mt-6" style={sheetMinHeight ? { minHeight: sheetMinHeight } : undefined}>
           {board !== "main" ? (
             <h2 className="mb-4 font-detail text-[1.35rem] leading-8 font-bold text-ink">{title}</h2>
           ) : null}
-          {currentGroup ? (
-            <section
-              data-menu-section={currentGroup.sourceIndex}
-              aria-labelledby={`menu-category-${currentGroup.sourceIndex}`}
-              className="scroll-mt-[calc(var(--menu-anchor,var(--menu-sticky,9rem))+0.75rem)]"
-            >
-              <motion.div
-                className="mb-3.5 flex items-center justify-between gap-3"
-                initial={reduceMotion ? false : { y: 10, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                transition={{ duration: 0.35, ease: "easeOut" }}
+          {bodyGroup ? (
+              <motion.section
+                key={bodyGroup.sourceIndex}
+                data-menu-section={bodyGroup.sourceIndex}
+                aria-labelledby={`menu-category-${bodyGroup.sourceIndex}`}
+                className="scroll-mt-[calc(var(--menu-anchor,var(--menu-sticky,9rem))+0.75rem)]"
+                initial={reduceMotion || !hasSwitched ? false : { opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: reduceMotion ? 0 : 0.32, ease: "easeOut" }}
               >
-                <h2 id={`menu-category-${currentGroup.sourceIndex}`} className="min-w-0 truncate font-detail text-[1.35rem] leading-8 font-bold text-ink">
-                  {localized(currentGroup.name, lang)}
-                </h2>
-                {/* <LayoutSwitch layout={layout} onChange={setLayout} lang={lang} /> */}
-              </motion.div>
-              <ul className={itemGridClass}>
-                {currentCards.map((item, itemIndex) => (
-                  <MenuItemCard
-                    key={item.key}
-                    item={item}
-                    layout={layout}
-                    onOpen={setDetail}
-                    lang={lang}
-                    index={itemIndex}
-                    priority={itemIndex === 0 && banners.length === 0}
-                  />
-                ))}
-              </ul>
-            </section>
+                <motion.div
+                  className="mb-3.5 flex items-center justify-between gap-3"
+                  initial={reduceMotion || hasSwitched ? false : { y: 10, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  transition={{ duration: 0.35, ease: "easeOut" }}
+                >
+                  <h2 id={`menu-category-${bodyGroup.sourceIndex}`} className="min-w-0 truncate font-detail text-[1.35rem] leading-8 font-bold text-ink">
+                    {localized(bodyGroup.name, lang)}
+                  </h2>
+                  {/* <LayoutSwitch layout={layout} onChange={setLayout} lang={lang} /> */}
+                </motion.div>
+                <ul className={itemGridClass}>
+                  {bodyCards.map((item, itemIndex) => (
+                    <MenuItemCard
+                      key={item.key}
+                      item={item}
+                      layout={layout}
+                      onOpen={setDetail}
+                      lang={lang}
+                      index={itemIndex}
+                      priority={itemIndex === 0 && banners.length === 0}
+                      enter={!hasSwitched}
+                    />
+                  ))}
+                </ul>
+              </motion.section>
           ) : null}
         </div>
       ) : (
